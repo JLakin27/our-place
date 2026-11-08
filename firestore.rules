@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function invited() {
+      return request.auth != null && request.auth.uid in [
+        'REPLACE_WITH_JOE_UID',
+        'REPLACE_WITH_NOEMIE_UID'
+      ];
+    }
+    function who() {
+      return request.auth.uid == 'REPLACE_WITH_JOE_UID' ? 'Joe' : 'Noémie';
+    }
+    function validPlace(d) {
+      return d.keys().hasOnly(['name','category','notes','addedBy','lat','lng','createdAt','status','reviewedBy','visitedAt','memoryNotes','photoUrl'])
+        && d.keys().hasAll(['name','category','notes','addedBy','lat','lng','createdAt'])
+        && d.name is string && d.name.size()>0 && d.name.size()<=100
+        && d.notes is string && d.notes.size()<=1000
+        && d.category in ['Agreed Trip','Wishlist - Her','Wishlist - Him','Wishlist - Joe','Wishlist - Noémie','Visited']
+        && d.addedBy in ['Joe','Noémie']
+        && d.lat is number && d.lat>=-90 && d.lat<=90
+        && d.lng is number && d.lng>=-180 && d.lng<=180
+        && d.createdAt is timestamp
+        && (!d.keys().hasAny(['status']) || d.status in ['suggested','approved','visited','vetoed'])
+        && (!d.keys().hasAny(['reviewedBy']) || d.reviewedBy in ['', 'Joe','Noémie'])
+        && (!d.keys().hasAny(['visitedAt']) || d.visitedAt == null || d.visitedAt is timestamp)
+        && (!d.keys().hasAny(['memoryNotes']) || (d.memoryNotes is string && d.memoryNotes.size()<=2000))
+        && (!d.keys().hasAny(['photoUrl']) || (d.photoUrl is string && d.photoUrl.size()<=2000 && (d.photoUrl=='' || d.photoUrl.matches('https://.*'))));
+    }
+    function priorStatus() {
+      return resource.data.get('status', resource.data.category=='Agreed Trip'?'approved':'suggested');
+    }
+    function futureStatus() {
+      return request.resource.data.get('status', request.resource.data.category=='Agreed Trip'?'approved':'suggested');
+    }
+    function isDecision() {
+      return priorStatus()=='suggested'
+        && futureStatus() in ['approved','vetoed']
+        && resource.data.addedBy != who()
+        && request.resource.data.reviewedBy == who()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','category','reviewedBy'])
+        && (futureStatus()!='approved' || request.resource.data.category=='Agreed Trip');
+    }
+    function isVisit() {
+      return priorStatus() in ['approved','visited']
+        && futureStatus()=='visited'
+        && request.resource.data.category=='Visited'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','category','visitedAt','memoryNotes','photoUrl'])
+        && request.resource.data.visitedAt is timestamp;
+    }
+    match /places/{placeId} {
+      allow read: if invited();
+      // Starter data created once, using an atomic transaction with meta/starter-seed.
+      allow create: if invited() && validPlace(request.resource.data) && (
+        (request.resource.data.status=='suggested'
+          && request.resource.data.addedBy==who()
+          && request.resource.data.category==('Wishlist - '+who())
+          && request.resource.data.reviewedBy=='')
+        || (placeId in ['starter-la-rochelle','starter-norway']
+          && request.resource.data.status=='approved'
+          && request.resource.data.category=='Agreed Trip')
+      );
+      allow update: if invited() && validPlace(request.resource.data)
+        && request.resource.data.name==resource.data.name
+        && request.resource.data.addedBy==resource.data.addedBy
+        && request.resource.data.lat==resource.data.lat
+        && request.resource.data.lng==resource.data.lng
+        && request.resource.data.notes==resource.data.notes
+        && request.resource.data.createdAt==resource.data.createdAt
+        && (isDecision() || isVisit());
+      allow delete: if invited();
+    }
+    match /meta/starter-seed {
+      allow read: if invited();
+      allow create: if invited()
+        && request.resource.data.keys().hasOnly(['seededAt'])
+        && request.resource.data.seededAt is timestamp;
+      allow update, delete: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
