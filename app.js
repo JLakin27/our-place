@@ -173,37 +173,68 @@ function placesReady(){return isDemo||(!placesToBusy&&placesToFresh&&canWrite())
 function placesToStatus(){const el=$('places-tab-help');if(!el)return;if(!isDemo&&!placesToFresh){el.textContent='Connecting to your private checklist… actions will be available once connected.';return;}el.textContent={approved:'Highest combined stars first. Move your 10 stars around whenever you like.',suggested:'Only the other person can approve or veto your suggestion.',done:'Ticked off together. Stars have been returned to your budgets.'}[placesToTab];}
 function setPlacesTab(tab){placesToTab=tab;document.querySelectorAll('.places-tab').forEach(b=>b.classList.toggle('active',b.dataset.listTab===tab));renderPlacesTo();}
 function makePlaceButton(text,action,cls='secondary',disabled=false){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=text;b.disabled=disabled;b.onclick=action;return b;}
-function renderPlacesTo(){if(!$('places-to-list'))return;
+function renderPlacesTo(){
+  if(!$('places-to-list'))return;
   const approved=placesTo.filter(p=>p.status==='approved').sort((a,b)=>totalStars(b)-totalStars(a)||a.name.localeCompare(b.name));
   const suggested=placesTo.filter(p=>p.status==='suggested').sort((a,b)=>a.name.localeCompare(b.name));
   const done=placesTo.filter(p=>p.status==='done').sort((a,b)=>a.name.localeCompare(b.name));
-  $('approved-place-count').textContent=approved.length;$('suggested-place-count').textContent=suggested.length;$('done-place-count').textContent=done.length;
-  $('my-stars-left').textContent=Math.max(0,10-placesSpent());placesToStatus();
-  const records={approved,suggested,done}[placesToTab],root=$('places-to-list');root.replaceChildren();
-  if(!records.length){const e=document.createElement('div');e.className='places-empty';e.textContent={approved:'Nothing approved yet — suggest your first place 👀',suggested:'No suggestions waiting right now.',done:'Nothing ticked off yet. The best bits are still to come.'}[placesToTab];root.append(e);}
-  for(const p of records){const card=document.createElement('article');card.className='check-card';
-    const head=document.createElement('div');head.className='check-header';
-    const left=document.createElement('div');left.className='check-content';const heading=document.createElement('h3');heading.textContent=p.name;left.append(heading);
-    const meta=document.createElement('span');meta.className='check-meta';meta.textContent=`Suggested by ${p.addedBy}`;left.append(meta);
-    if(p.notes){const note=document.createElement('p');note.textContent=p.notes;left.append(note);}
-    head.append(left);const score=document.createElement('div');score.className='check-score';score.textContent=p.status==='approved'?`${totalStars(p)} ⭐`:p.status==='done'?'✓ Done':'👀 Pending';head.append(score);card.append(head);
-    if(p.status==='approved'){
-      const detail=document.createElement('div');detail.className='star-detail';detail.textContent=`Joe ${p.joeStars||0} ⭐    ·    Noémie ${p.noemieStars||0} ⭐`;card.append(detail);
-      const row=document.createElement('div');row.className='star-edit';const caption=document.createElement('span');caption.textContent=`Your stars: ${p[myStarsKey()]||0} / 10`;row.append(caption);
-      const controls=document.createElement('div');controls.className='star-buttons';
-      controls.append(makePlaceButton('−',()=>adjustPlacesStars(p,-1),'secondary',!placesReady()||(p[myStarsKey()]||0)===0));
-      controls.append(makePlaceButton('+',()=>adjustPlacesStars(p,1),'secondary',!placesReady()||placesSpent()>=10));row.append(controls);card.append(row);
-      const actions=document.createElement('div');actions.className='check-actions';actions.append(makePlaceButton('✓ Tick off',()=>markPlaceDone(p),'secondary',!placesReady()));card.append(actions);
-    }else if(p.status==='suggested'){
-      const actions=document.createElement('div');actions.className='check-actions';
-      if(p.addedBy!==currentUser){actions.append(makePlaceButton('Approve ✓',()=>decidePlace(p,'approved'),'primary',!placesReady()));actions.append(makePlaceButton('Veto 👀',()=>decidePlace(p,'vetoed'),'secondary',!placesReady()));}
-      else{const wait=document.createElement('span');wait.className='check-meta';wait.textContent=`Waiting for ${otherUser(currentUser)} to decide`;actions.append(wait);}
-      card.append(actions);
-    }
-    root.append(card);
+  $('approved-place-count').textContent=approved.length;
+  $('suggested-place-count').textContent=suggested.length;
+  $('done-place-count').textContent=done.length;
+  $('my-stars-left').textContent=Math.max(0,10-placesSpent());
+  placesToStatus();
+  const records={approved,suggested,done}[placesToTab],root=$('places-to-list');
+  root.replaceChildren();
+  if(!records.length){
+    const empty=document.createElement('div');empty.className='places-empty';
+    empty.textContent={approved:'Nothing approved yet — suggest your first place 👀',suggested:'No suggestions waiting right now.',done:'Nothing ticked off yet. The best bits are still to come.'}[placesToTab];
+    root.append(empty);
+  }else{
+    const wrap=document.createElement('div');wrap.className='places-table-wrap';
+    const table=document.createElement('table');table.className='places-priority-table';
+    const thead=document.createElement('thead');const hr=document.createElement('tr');
+    const labels=placesToTab==='approved'?['#','Place','Joe ⭐','Noémie ⭐','Total ⭐','Your stars','']:
+      placesToTab==='suggested'?['Place','Suggested by','Decision']:['Place','Status'];
+    labels.forEach((label,i)=>{const th=document.createElement('th');th.textContent=label;if(placesToTab==='approved'&&i===0)th.className='rank-col';hr.append(th);});
+    thead.append(hr);table.append(thead);
+    const tbody=document.createElement('tbody');
+    const cell=(row,value,cls='')=>{const td=document.createElement('td');td.className=cls;if(value instanceof Node)td.append(value);else td.textContent=value;row.append(td);return td;};
+    records.forEach((p,i)=>{
+      const tr=document.createElement('tr');tr.className='priority-row';
+      if(placesToTab==='approved'){
+        if(i===0&&totalStars(p)>0)tr.classList.add('top-priority');
+        cell(tr,String(i+1),'rank-col');
+        const nameCell=cell(tr,p.name,'priority-name');nameCell.title=p.notes||p.name;
+        cell(tr,String(p.joeStars||0),'star-count');
+        cell(tr,String(p.noemieStars||0),'star-count');
+        const score=document.createElement('strong');score.className='total-score';score.textContent=String(totalStars(p));
+        cell(tr,score,'score-cell');
+        const controls=document.createElement('div');controls.className='compact-star-controls';
+        const own=p[myStarsKey()]||0;
+        controls.append(makePlaceButton('−',()=>adjustPlacesStars(p,-1),'mini-star-btn',!placesReady()||own===0));
+        const count=document.createElement('span');count.className='own-stars';count.textContent=String(own);count.title='Your allocated stars';controls.append(count);
+        controls.append(makePlaceButton('+',()=>adjustPlacesStars(p,1),'mini-star-btn',!placesReady()||placesSpent()>=10));
+        cell(tr,controls,'controls-cell');
+        const doneButton=makePlaceButton('✓ Done',()=>markPlaceDone(p),'mini-done-btn',!placesReady());
+        cell(tr,doneButton,'done-cell');
+      }else if(placesToTab==='suggested'){
+        const nameCell=cell(tr,p.name,'priority-name');nameCell.title=p.notes||p.name;
+        cell(tr,p.addedBy,'suggest-author');
+        if(p.addedBy!==currentUser){const actions=document.createElement('div');actions.className='compact-decision';
+          actions.append(makePlaceButton('Approve ✓',()=>decidePlace(p,'approved'),'mini-approve-btn',!placesReady()));
+          actions.append(makePlaceButton('Veto',()=>decidePlace(p,'vetoed'),'mini-done-btn',!placesReady()));
+          cell(tr,actions,'decision-cell');
+        }else cell(tr,`Waiting for ${otherUser(currentUser)}`,'pending-cell');
+      }else{
+        cell(tr,p.name,'priority-name');cell(tr,'✓ Completed','completed-cell');
+      }
+      tbody.append(tr);
+    });
+    table.append(tbody);wrap.append(table);root.append(wrap);
   }
-  // This is a second section; keep travel-map notifications intact and append these entries.
-  const count=incoming().length+placesToIncoming().length;$('notifications-count').textContent=count;$('notifications-btn').classList.toggle('has-new',count>0);
+  const count=incoming().length+placesToIncoming().length;
+  $('notifications-count').textContent=count;
+  $('notifications-btn').classList.toggle('has-new',count>0);
   renderNotifications();
 }
 function loadDemoPlacesTo(){try{const data=JSON.parse(localStorage.getItem('our-places-to-demo'));placesTo=Array.isArray(data)?data:[];}catch{placesTo=[];}placesToFresh=true;renderPlacesTo();}
