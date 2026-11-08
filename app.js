@@ -1,17 +1,18 @@
 /* Firebase console > Project settings > Your apps > Web app. */
 const firebaseConfig = {
-  apiKey: 'PASTE_API_KEY',
-  authDomain: 'PASTE_PROJECT_ID.firebaseapp.com',
-  projectId: 'PASTE_PROJECT_ID',
-  storageBucket: 'PASTE_PROJECT_ID.firebasestorage.app',
-  messagingSenderId: 'PASTE_MESSAGING_SENDER_ID',
-  appId: 'PASTE_APP_ID'
+  apiKey: "AIzaSyBXzfTak_EcGERwbs1cOlZpGQgtGUF3SLo",
+  authDomain: "ourwebsite-19c5b.firebaseapp.com",
+  projectId: "ourwebsite-19c5b",
+  storageBucket: "ourwebsite-19c5b.firebasestorage.app",
+  messagingSenderId: "973934565883",
+  appId: "1:973934565883:web:22324a6fe82b35c26ed35e",
+  measurementId: "G-19DNFJWZM3"
 };
 /* IMPORTANT: replace these with the same Firebase Auth UIDs used in firestore.rules. */
-const USER_UIDS = { Joe: 'REPLACE_WITH_JOE_UID', 'Noémie': 'REPLACE_WITH_NOEMIE_UID' };
+const USER_UIDS = { Joe: 'ahZtOZv0wnboG5LFKU0Nx8BpJpq2', 'Noémie': '9jtZIfJ2SaajvJKVFF86YowXBi12' };
 const $ = id => document.getElementById(id);
 const STARTERS = [
-  {id:'starter-la-rochelle', name:'La Rochelle, France', lat:46.1603, lng:-1.1511, category:'Agreed Trip', status:'approved', notes:'A place for us to explore together.', addedBy:'Joe'},
+  {id:'starter-la-rochelle', name:'La Rochelle, France', lat:46.1603, lng:-1.1511, category:'The beachhhhh', status:'approved', notes:'A place for us to explore together.', addedBy:'Joe'},
   {id:'starter-norway', name:'Norway', lat:61, lng:8, category:'Agreed Trip', status:'approved', notes:'fjords 😍😍😍', addedBy:'Noémie'}
 ];
 const isDemo = !firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith('PASTE_');
