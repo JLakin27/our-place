@@ -4,7 +4,7 @@ service cloud.firestore {
     function invited() {
       return request.auth != null && request.auth.uid in [
         'ahZtOZv0wnboG5LFKU0Nx8BpJpq2',
-        '9jtZIfJ2SaajvJKVFF86YowXBi12'
+        'ed9Ufp9pNRRY5qsFMneztfsxoff1'
       ];
     }
     function who() {
