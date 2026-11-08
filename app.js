@@ -9,7 +9,7 @@ const firebaseConfig = {
   measurementId: "G-19DNFJWZM3"
 };
 /* IMPORTANT: replace these with the same Firebase Auth UIDs used in firestore.rules. */
-const USER_UIDS = { Joe: 'ahZtOZv0wnboG5LFKU0Nx8BpJpq2', 'Noémie': '9jtZIfJ2SaajvJKVFF86YowXBi12' };
+const USER_UIDS = { Joe: 'ahZtOZv0wnboG5LFKU0Nx8BpJpq2', 'Noémie': 'ed9Ufp9pNRRY5qsFMneztfsxoff1' };
 const LOGIN_EMAILS = {
   joe: 'lakin.joe27@gmail.com',
   captain: 'fakeemail@gmail.com'
