@@ -1,30 +1,23 @@
-# Our Space — Profiles + Send a Kiss 😘
+# Our Space — collapsible homepage KPIs
 
-This is an incremental release based on the last working **Dodo wheel sync fix**. Existing map and checklist logic, Firebase IDs, logins and saved records are retained.
+Small, isolated homepage update based on the **latest Our Space Profiles & Kisses** release.
 
-## Deployment (IMPORTANT: two locations)
+## What changed
+- Kept **Your inbox** directly below the two main navigation cards.
+- Removed the old homepage text counts, recent-activity line, and rotating footer message.
+- Added **At a glance**, collapsed by default with a Show/Hide control.
+- On expansion, four live Firestore-backed totals: approved unvisited travel destinations, visited destinations, approved unfinished checklist ideas, and completed checklist ideas.
+- Clicking travel metrics opens Our Next Stop; clicking checklist metrics opens Our Places To.
+- Removed the extra sentence beneath **Send a kiss**.
 
-1. Make a backup of your current GitHub files (Code → Download ZIP).
-2. In **Firebase Console → Firestore Database → Rules**, replace the entire rules editor text with the contents of `firestore.rules` from this package and click **Publish**. This retains the rules for your existing `places` and `placesTo` collections, and adds two new private collections: `profiles` and `kisses`. Publish **before testing the new UI**.
-3. In your GitHub repository root, upload/replace **only** `index.html`, `app.js`, and `styles.css` from this ZIP. Commit to your GitHub Pages branch. Do not upload the ZIP itself as your website.
-4. Refresh your existing site using Ctrl+Shift+R. Both accounts and existing records remain unchanged. No new Firebase Auth users are required.
-5. Test with both logins, ideally in different browsers: Joe edits his profile; Captain sees Joe's avatar/status; Joe sends a kiss; Captain opens the bell to see it and taps it to dismiss. Test a travel map pin and a checklist vote as regression checks.
+## Deploy
+1. Back up your currently working GitHub files.
+2. Replace only `index.html`, `app.js`, and `styles.css` in the GitHub Pages repository root. Commit all three together.
+3. Do **not** change Firestore rules, Firebase logins, or existing data.
+4. Hard refresh (`Ctrl+Shift+R`) after GitHub Pages finishes deploying.
+5. Verify Inbox still works, expand/hide the cards, and compare counts with both pages.
 
-## How the new features work
-
-- Both avatars appear at the top. The other person's avatar is first, yours second. Emoji status overlaps the avatar at bottom-right. On narrow phones, the names disappear but the avatars remain; each button has an accessible label.
-- Your account controls your own avatar, colour and status only. The status remains until changed or cleared.
-- Eight quick status emojis in this order: 🦤 ❤️ 🥰 🥺 😂 😴 😈 😡. A custom emoji field is available for avatar and status. Avatar presets and eight palette colours are included.
-- The UI always displays the name **Noémie**; **Captain** is only her login alias, as before.
-- Send a kiss saves a small notification to Firestore. Only the recipient can see and dismiss it. Tapping a received kiss deletes the notification and removes it from the count. The sender gets a “Kiss sent” confirmation, but no read receipt or online-status information.
-- No photos, Firebase Storage, push notifications, message histories or new paid services are added.
-
-## Security and limitations
-
-- The new Firestore rules only allow the two existing account UIDs. Each account may edit only its own profile. Kisses can only be sent to the other account, read by the recipient and dismissed by that recipient.
-- The existing `places` and `placesTo` rules remain unchanged. **Do not use open Firestore rules** (`allow read, write: if true`).
-- The new features will give a permissions error if the new Firestore rules have not been published.
-- Kisses are in-app only: the other person sees them next time the app is opened and online. No Android or WhatsApp push alert is sent.
-- This is an online-first feature. A successful Firestore write is required before confirming the save.
-- For now the custom emoji text fields accept short text; please enter an emoji rather than a word.
-- JavaScript syntax and element references were checked. A live connection to your private Firebase project was not available for testing; please check both accounts after deploying.
+## Notes
+- No Firebase writes added. The metrics count locally from existing real-time snapshots.
+- The panel resets to collapsed on a full page reload.
+- This version was syntax and DOM-reference checked but not connected to your live Firebase project for testing.
