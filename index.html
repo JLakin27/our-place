@@ -5,8 +5,10 @@
   <meta name="theme-color" content="#f8f7f3"><title>Our Space</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><link rel="stylesheet" href="./styles.css">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script><script type="module" src="./app.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script><script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" defer></script><script type="module" src="./app.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -19,13 +21,6 @@
       <button class="nav-link" data-section="places">✧ <span>Our places to 😈</span></button>
       <div class="sidebar-soon" aria-disabled="true">＋ <span>More coming soon...</span></div>
     </nav>
-    <div id="map-sidebar" hidden>
-      <div class="places-heading"><div><div class="side-label">THE PLACES</div><small id="list-count">Our growing list</small></div><button id="side-add" aria-label="Add a place">+</button></div>
-      <div class="filters" aria-label="Filter places">
-        <button class="filter active" data-filter="All">All</button><button class="filter" data-filter="Suggested">Suggested</button><button class="filter" data-filter="Approved">Approved</button><button class="filter" data-filter="Visited">Done</button><button class="filter" data-filter="Vetoed">Vetoed</button>
-      </div>
-      <div id="places-list" class="places-list"><p class="empty">Your adventure list starts here.</p></div>
-    </div>
     <footer class="sidebar-footer"><span id="identity">Local preview</span><button id="sign-out" hidden>Sign out ↗</button></footer>
   </aside>
   <div class="shade" id="shade"></div>
@@ -55,10 +50,29 @@
       <section id="map-view" class="view" hidden>
         <section class="hero"><div><div class="eyebrow orange">OUR NEXT STOP 🌍</div><h1>Where to next, little birdie? 🐦</h1><p>Suggest somewhere, decide together, and keep track of where we've been.</p></div><button id="add-place" class="primary">＋ Suggest a place</button></section>
         <section class="stats"><div class="stat"><span class="stat-emoji peach">✦</span><div><strong id="wishlist-count">0</strong><small>Suggestions</small></div></div><div class="stat"><span class="stat-emoji mint">♡</span><div><strong id="agreed-count">0</strong><small>Approved</small></div></div><div class="stat"><span class="stat-emoji lilac">✓</span><div><strong id="done-count">0</strong><small>Places we've been</small></div></div></section>
-        <section class="map-card"><div class="map-toolbar"><div class="map-title"><span>✳</span><b>Our map</b><small>Click anywhere to suggest somewhere</small></div><div class="map-options"><span class="legend"><i class="dot hers"></i>Suggested <i class="dot together"></i>Approved <i class="dot done"></i>Done</span><button id="fit-pins" class="outline">⌗ Show all</button></div></div>
+        <section class="trip-list-panel" id="trip-list-panel" aria-labelledby="trip-list-title">
+          <div class="trip-list-head">
+            <div><h2 id="trip-list-title">Our places</h2><p id="trip-list-caption">The three newest places</p></div>
+            <button type="button" class="trip-list-toggle" id="trip-list-toggle" aria-expanded="false" aria-controls="trip-list-expanded"><span id="trip-list-toggle-label">View all</span> <span aria-hidden="true">⌄</span></button>
+          </div>
+          <div id="trip-list-expanded" hidden>
+            <div class="trip-list-controls">
+              <div class="trip-filter-controls" aria-label="Filter places">
+                <button class="trip-filter active" type="button" data-trip-filter="All">All</button>
+                <button class="trip-filter" type="button" data-trip-filter="Approved">Approved</button>
+                <button class="trip-filter" type="button" data-trip-filter="Suggested">Suggested</button>
+                <button class="trip-filter" type="button" data-trip-filter="Visited">Done</button>
+                <button class="trip-filter" type="button" data-trip-filter="Vetoed">Vetoed</button>
+              </div>
+              <label class="trip-sort-label" for="trip-sort">Sort <select id="trip-sort"><option value="newest">Newest first</option><option value="alphabetical">A–Z</option><option value="oldest">Oldest first</option></select></label>
+            </div>
+          </div>
+          <div id="trip-list-items" class="trip-list-items" aria-live="polite"><p class="empty">No places yet.</p></div>
+        </section>
+        <section class="map-card" id="map-card"><div class="map-toolbar"><div class="map-title"><span>✳</span><b>Our map</b><small>Click anywhere to suggest somewhere</small></div><div class="map-options"><span class="legend"><i class="dot hers"></i>Suggested <i class="dot together"></i>Approved <i class="dot done"></i>Done</span><button id="fit-pins" class="outline">⌗ Show all</button><button id="map-expand" class="outline" type="button" aria-pressed="false">⛶ Expand map</button></div></div>
           <div class="search-area"><form id="search-form" class="search-form"><span>⌕</span><input type="search" id="place-search" placeholder="Search a city or place..." aria-label="Search places"><button type="submit">Search</button></form><div class="search-results" id="search-results" hidden></div></div>
           <div id="map" aria-label="Interactive world map"></div><div class="map-bottom"><span>Click the map to add a location</span><span>© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors</span></div>
-        </section><div class="section-heading"><h2>Our places</h2><p>Pick a place from the list to see details, approve it, or mark it visited.</p></div><div class="cards-list" id="main-places"></div>
+        </section>
         <div class="preview" id="preview" hidden><b>Local preview:</b> Your choices are stored in this browser only. You can switch between Joe and Noémie below to test approvals, but nothing syncs to another device until Firebase is configured. <div class="demo-switch"><label for="demo-user">Preview as</label><select id="demo-user"><option>Joe</option><option>Noémie</option></select></div></div>
       </section>
       <section id="places-view" class="view" hidden>
