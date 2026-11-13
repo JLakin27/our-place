@@ -183,38 +183,41 @@ const placesToIncoming=()=>placesTo.filter(p=>p.status==='suggested'&&p.addedBy!
 let undoRecord=null,undoTimer=null;
 function showUndo(p){undoRecord={...p};$('undo-label').textContent=`Removed “${p.name}”.`;$('undo-toast').hidden=false;clearTimeout(undoTimer);undoTimer=setTimeout(hideUndo,10000);}
 function hideUndo(){undoRecord=null;$('undo-toast').hidden=true;clearTimeout(undoTimer);}
-async function undoPlace(){const p=undoRecord;if(!p)return;const saved=await placesToWrite(async()=>{if(isDemo){const item=placesTo.find(x=>x.id===p.id);if(!item||item.status!=='deleted')throw Error('This idea was changed.');Object.assign(item,{status:p.status,joeStars:0,noemieStars:0});delete item.deletedBy;delete item.deletedFrom;saveDemoPlacesTo();}else await firestore.updateDoc(firestore.doc(db,'placesTo',p.id),{status:p.status,deletedBy:firestore.deleteField(),deletedFrom:firestore.deleteField()});});if(saved){hideUndo();notify('Restored ✓ Your 😈 are available again.');}}
+async function undoPlace(){const p=undoRecord;if(!p)return;const saved=await placesToWrite(async()=>{if(isDemo){const item=placesTo.find(x=>x.id===p.id);if(!item||item.status!=='deleted')throw Error('This idea was changed.');Object.assign(item,{status:p.status,joeStars:0,noemieStars:0});delete item.deletedBy;delete item.deletedFrom;saveDemoPlacesTo();}else await firestore.updateDoc(firestore.doc(db,'placesTo',p.id),{status:p.status,deletedBy:firestore.deleteField(),deletedFrom:firestore.deleteField()});});if(saved){hideUndo();notify('Restored ✓');}}
 async function removePlace(p){if(!placesReady())return notify('Checklist not connected yet.');if(!confirm(`Remove “${p.name}” from both lists? Neither person is notified. You can undo straight afterwards.`))return;const previous={...p};const ok=await placesToWrite(async()=>{if(isDemo){Object.assign(p,{status:'deleted',deletedBy:currentUser,deletedFrom:p.status,joeStars:0,noemieStars:0});saveDemoPlacesTo();}else await firestore.updateDoc(firestore.doc(db,'placesTo',p.id),{status:'deleted',deletedBy:currentUser,deletedFrom:p.status,joeStars:0,noemieStars:0});});if(ok)showUndo(previous);}
 
-const myStarsKey=()=>currentUser==='Joe'?'joeStars':'noemieStars';
-const totalStars=p=>(p.joeStars||0)+(p.noemieStars||0);
-const placesSpent=()=>placesTo.filter(p=>p.status==='approved').reduce((sum,p)=>sum+(p[myStarsKey()]||0),0);
+// The existing Firestore fields are reused, so prior allocations above zero count as an upvote.
+const myVoteKey=()=>currentUser==='Joe'?'joeStars':'noemieStars';
+const hasVote=(p,key)=>Number(p[key]||0)>0;
+const voteCount=p=>Number(hasVote(p,'joeStars'))+Number(hasVote(p,'noemieStars'));
+const submittedAt=p=>{const value=p.createdAt?.toDate?.()|| (p.createdAt?.seconds?new Date(p.createdAt.seconds*1000):new Date(p.createdAt||0));return Number.isNaN(value.getTime())||!p.createdAt?'—':new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric'}).format(value);};
+const submittedTime=p=>p.createdAt?.toMillis?.()||(p.createdAt?.seconds? p.createdAt.seconds*1000 : +new Date(p.createdAt||0))||0;
 function placesReady(){return isDemo||(!placesToBusy&&placesToFresh&&canWrite());}
-function placesToStatus(){const el=$('places-tab-help');if(!el)return;if(!isDemo&&!placesToFresh){el.textContent='Connecting to your private checklist… actions will be available once connected.';return;}el.textContent={approved:'The more we want it, the higher it ranks. You have 10 points each to spread across your favourites.',suggested:'Only the other person can approve or veto your suggestion.',done:'Ticked off together. Your 😈 are back in your budgets.'}[placesToTab];}
+function placesToStatus(){const el=$('places-tab-help');if(!el)return;if(!isDemo&&!placesToFresh){el.textContent='Connecting to your private checklist… actions will be available once connected.';return;}el.textContent={approved:'Tap the heart on the ones you really want. Mutual favourites rise to the top.',suggested:'Ideas only appear on the approved list when the other person is comfortable with them.',done:'The ones we’ve ticked off together ✓'}[placesToTab];}
 function setPlacesTab(tab){placesToTab=tab;document.querySelectorAll('.places-tab').forEach(b=>b.classList.toggle('active',b.dataset.listTab===tab));renderPlacesTo();}
 function makePlaceButton(text,action,cls='secondary',disabled=false){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=text;b.disabled=disabled;b.onclick=action;if(cls==='mini-delete-btn'){b.title='Remove idea';b.setAttribute('aria-label','Remove idea');}return b;}
 function renderPlacesTo(){
   if(!$('places-to-list'))return;
-  const approved=placesTo.filter(p=>p.status==='approved').sort((a,b)=>totalStars(b)-totalStars(a)||a.name.localeCompare(b.name));
-  const suggested=placesTo.filter(p=>p.status==='suggested').sort((a,b)=>a.name.localeCompare(b.name));
-  const done=placesTo.filter(p=>p.status==='done').sort((a,b)=>a.name.localeCompare(b.name));
+  const newest=(a,b)=>submittedTime(b)-submittedTime(a)||a.name.localeCompare(b.name);
+  const approved=placesTo.filter(p=>p.status==='approved').sort((a,b)=>voteCount(b)-voteCount(a)||newest(a,b));
+  const suggested=placesTo.filter(p=>p.status==='suggested').sort(newest);
+  const done=placesTo.filter(p=>p.status==='done').sort(newest);
   $('approved-place-count').textContent=approved.length;
   $('suggested-place-count').textContent=suggested.length;
   $('done-place-count').textContent=done.length;
-  $('my-stars-left').textContent=Math.max(0,10-placesSpent());
+  $('places-surprise').disabled=!approved.length||dodoSpinning;
   placesToStatus();
   const records={approved,suggested,done}[placesToTab],root=$('places-to-list');
   root.replaceChildren();
   if(!records.length){
     const empty=document.createElement('div');empty.className='places-empty';
-    empty.textContent={approved:'Nothing approved yet — suggest your first place 👀',suggested:'No suggestions waiting right now.',done:'Nothing ticked off yet. The best bits are still to come.'}[placesToTab];
-    root.append(empty);
+    empty.textContent={approved:'Nothing approved yet — suggest your first place 👀',suggested:'No suggestions waiting right now.',done:'Nothing ticked off yet. The best bits are still to come.'}[placesToTab];root.append(empty);
   }else{
     const wrap=document.createElement('div');wrap.className='places-table-wrap';
     const table=document.createElement('table');table.className='places-priority-table';
     const thead=document.createElement('thead');const hr=document.createElement('tr');
-    const labels=placesToTab==='approved'?['#','Place','Joe 😈','Noémie 😈','Total 😈','Your 😈','']:
-      placesToTab==='suggested'?['Place','Suggested by','Decision']:['Place','Status'];
+    const labels=placesToTab==='approved'?['#','Place','Submitted','Joe','Noémie','Wanted by','']:
+      placesToTab==='suggested'?['Place','Submitted','Suggested by','Decision']:['Place','Submitted','Status'];
     labels.forEach((label,i)=>{const th=document.createElement('th');th.textContent=label;if(placesToTab==='approved'&&i===0)th.className='rank-col';hr.append(th);});
     thead.append(hr);table.append(thead);
     const tbody=document.createElement('tbody');
@@ -222,33 +225,32 @@ function renderPlacesTo(){
     records.forEach((p,i)=>{
       const tr=document.createElement('tr');tr.className='priority-row';
       if(placesToTab==='approved'){
-        if(i===0&&totalStars(p)>0)tr.classList.add('top-priority');
+        if(i===0&&voteCount(p)>0)tr.classList.add('top-priority');
         cell(tr,String(i+1),'rank-col');
         const nameCell=cell(tr,p.name,'priority-name');nameCell.title=p.notes||p.name;
-        cell(tr,String(p.joeStars||0),'star-count');
-        cell(tr,String(p.noemieStars||0),'star-count');
-        const score=document.createElement('strong');score.className='total-score';score.textContent=String(totalStars(p));
-        cell(tr,score,'score-cell');
-        const controls=document.createElement('div');controls.className='compact-star-controls';
-        const own=p[myStarsKey()]||0;
-        controls.append(makePlaceButton('−',()=>adjustPlacesStars(p,-1),'mini-star-btn',!placesReady()||own===0));
-        const count=document.createElement('span');count.className='own-stars';count.textContent=String(own);count.title='Your allocated 😈';controls.append(count);
-        controls.append(makePlaceButton('+',()=>adjustPlacesStars(p,1),'mini-star-btn',!placesReady()||placesSpent()>=10));
-        cell(tr,controls,'controls-cell');
+        cell(tr,submittedAt(p),'submitted-date');
+        for(const [key,person] of [['joeStars','Joe'],['noemieStars','Noémie']]){
+          if(person===currentUser){
+            const chosen=hasVote(p,key);const vote=makePlaceButton(chosen?'♥':'♡',()=>togglePlaceVote(p),`vote-btn ${chosen?'voted':''}`,!placesReady());
+            vote.title=chosen?'Remove your upvote':'I really want this';vote.setAttribute('aria-label',vote.title);vote.setAttribute('aria-pressed',String(chosen));
+            cell(tr,vote,'vote-cell');
+          }else{const label=document.createElement('span');label.className=hasVote(p,key)?'other-vote yes':'other-vote';label.textContent=hasVote(p,key)?'♥':'♡';label.title=hasVote(p,key)?person+' wants this':person+' has not upvoted';cell(tr,label,'vote-cell');}
+        }
+        cell(tr,`${voteCount(p)} / 2`,'score-cell');
         const actions=document.createElement('div');actions.className='compact-row-actions';
         actions.append(makePlaceButton('✓ Done',()=>markPlaceDone(p),'mini-done-btn',!placesReady()));
         actions.append(makePlaceButton('🗑️',()=>removePlace(p),'mini-delete-btn',!placesReady()));
         cell(tr,actions,'done-cell');
       }else if(placesToTab==='suggested'){
         const nameCell=cell(tr,p.name,'priority-name');nameCell.title=p.notes||p.name;
-        cell(tr,p.addedBy,'suggest-author');
+        cell(tr,submittedAt(p),'submitted-date');cell(tr,p.addedBy,'suggest-author');
         if(p.addedBy!==currentUser){const actions=document.createElement('div');actions.className='compact-decision';
           actions.append(makePlaceButton('Approve ✓',()=>decidePlace(p,'approved'),'mini-approve-btn',!placesReady()));
           actions.append(makePlaceButton('Veto',()=>decidePlace(p,'vetoed'),'mini-done-btn',!placesReady()));
           actions.append(makePlaceButton('🗑️',()=>removePlace(p),'mini-delete-btn',!placesReady()));cell(tr,actions,'decision-cell');
         }else{const controls=document.createElement('div');controls.className='compact-row-actions';controls.append(document.createTextNode(`Waiting for ${otherUser(currentUser)} `));controls.append(makePlaceButton('🗑️',()=>removePlace(p),'mini-delete-btn',!placesReady()));cell(tr,controls,'pending-cell');}
       }else{
-        cell(tr,p.name,'priority-name');const doneControls=document.createElement('div');doneControls.className='compact-row-actions';doneControls.append(document.createTextNode('✓ Completed '));doneControls.append(makePlaceButton('🗑️',()=>removePlace(p),'mini-delete-btn',!placesReady()));cell(tr,doneControls,'completed-cell');
+        cell(tr,p.name,'priority-name');cell(tr,submittedAt(p),'submitted-date');const doneControls=document.createElement('div');doneControls.className='compact-row-actions';doneControls.append(document.createTextNode('✓ Completed '));doneControls.append(makePlaceButton('🗑️',()=>removePlace(p),'mini-delete-btn',!placesReady()));cell(tr,doneControls,'completed-cell');
       }
       tbody.append(tr);
     });
@@ -271,24 +273,59 @@ async function suggestPlaceTo(e){e.preventDefault();const name=$('places-idea-na
   if(ok){$('places-suggest-modal').hidden=true;$('places-suggest-form').reset();setPlacesTab('suggested');}
 }
 async function decidePlace(p,status){const ok=await placesToWrite(async()=>{if(p.status!=='suggested'||p.addedBy===currentUser)throw Error('Only the other person can decide.');if(isDemo){Object.assign(p,{status,reviewedBy:currentUser});saveDemoPlacesTo();}else await firestore.updateDoc(firestore.doc(db,'placesTo',p.id),{status,reviewedBy:currentUser});});if(ok)setPlacesTab('approved');}
-async function adjustPlacesStars(p,delta){await placesToWrite(async()=>{
-  const key=myStarsKey();if(isDemo){const next=p[key]+delta;if(next<0||next>10||placesSpent()+delta>10)throw Error('You only have 10 😈. Reallocate another first.');p[key]=next;saveDemoPlacesTo();return;}
-  // Read currently approved records in a transaction, so concurrent edits to the
-  // same records cannot silently overspend the ten-star budget.
-  const refs=placesTo.filter(x=>x.status==='approved').map(x=>firestore.doc(db,'placesTo',x.id));const target=firestore.doc(db,'placesTo',p.id);
-  await firestore.runTransaction(db,async tx=>{
-    const docs=[];for(const ref of refs)docs.push(await tx.get(ref));
-    const current=docs.find(d=>d.id===p.id);if(!current?.exists()||current.data().status!=='approved')throw Error('This place is no longer approved.');
-    const spent=docs.filter(d=>d.exists()&&d.data().status==='approved').reduce((a,d)=>a+(d.data()[key]||0),0);
-    const old=current.data()[key]||0,next=old+delta;
-    if(next<0||next>10||spent+delta>10)throw Error("You've spent all 10 😈. Move some from another idea first.");
-    tx.update(target,{[key]:next});
+async function togglePlaceVote(p){
+  const key=myVoteKey();const voted=hasVote(p,key);const next=voted?0:1;
+  await placesToWrite(async()=>{
+    if(isDemo){if(p.status!=='approved')throw Error('Only approved ideas can be upvoted.');p[key]=next;saveDemoPlacesTo();return;}
+    // A transaction avoids accidental overwrites if both people vote together.
+    const ref=firestore.doc(db,'placesTo',p.id);
+    await firestore.runTransaction(db,async tx=>{
+      const snap=await tx.get(ref);
+      if(!snap.exists()||snap.data().status!=='approved')throw Error('This idea is no longer approved.');
+      const current=Number(snap.data()[key]||0)>0;
+      tx.update(ref,{[key]:current?0:1});
+    });
   });
-});}
-async function markPlaceDone(p){if(!confirm(`Tick off “${p.name}”? Your 😈 will return to both of you.`))return;
+}
+async function markPlaceDone(p){if(!confirm(`Tick off “${p.name}”? It’ll move to Done.`))return;
   const ok=await placesToWrite(async()=>{if(isDemo){Object.assign(p,{status:'done',joeStars:0,noemieStars:0});saveDemoPlacesTo();}else await firestore.updateDoc(firestore.doc(db,'placesTo',p.id),{status:'done',joeStars:0,noemieStars:0});});if(ok)setPlacesTab('done');
 }
-function bindPlacesTo(){$('undo-button').onclick=undoPlace;$('undo-dismiss').onclick=hideUndo;$('places-surprise').onclick=()=>{const options=placesTo.filter(p=>p.status==='approved');if(!options.length)return notify('Approve some ideas first 👀');const pick=options[Math.floor(Math.random()*options.length)];notify('🎲 Dodo picked: '+pick.name+' 😈');};document.querySelectorAll('.places-tab').forEach(b=>b.onclick=()=>setPlacesTab(b.dataset.listTab));$('places-suggest').onclick=()=>{if(!placesReady())return notify('Wait until the checklist is connected.');$('places-suggest-modal').hidden=false;};
+// Dodo wheel is purely visual: every approved, unfinished idea has equal odds.
+let dodoSpinning=false,dodoRotation=0,dodoInterval=null,dodoTimeout=null;
+function closeDodoResult(){$('dodo-result-modal').hidden=true;}
+function chooseDodo(){
+  if(dodoSpinning)return;
+  const options=placesTo.filter(p=>p.status==='approved');
+  if(!options.length)return notify('Approve some ideas first 👀');
+  dodoSpinning=true;
+  const btn=$('places-surprise');btn.disabled=true;btn.textContent='The dodo is thinking…';
+  const wheel=$('dodo-wheel'),cycling=$('dodo-cycling'),n=options.length;
+  const palette=['#e9b699','#e4dbc3','#b9d3c4','#d8c4db','#f2d9bc','#c7dce7'];
+  wheel.style.background=`conic-gradient(${options.map((_,i)=>`${palette[i%palette.length]} ${i*100/n}% ${(i+1)*100/n}%`).join(',')})`;
+  // Uniform selection: ranking and votes do not change the odds.
+  const selection=Math.floor(Math.random()*n),chosen=options[selection];
+  let index=0;cycling.textContent=options[0].name;
+  const motionAllowed=!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(dodoInterval)clearInterval(dodoInterval);
+  if(dodoTimeout)clearTimeout(dodoTimeout);
+  if(motionAllowed){
+    dodoInterval=setInterval(()=>{index=(index+1)%n;cycling.textContent=options[index].name;},115);
+    const targetAngle=-(selection+.5)*360/n;
+    const delta=targetAngle-(dodoRotation%360);
+    dodoRotation+=2160+((delta%360)+360)%360;
+    wheel.style.transition='transform 3.1s cubic-bezier(.13,.65,.12,1)';
+    wheel.style.transform=`rotate(${dodoRotation}deg)`;
+  }else{cycling.textContent=chosen.name;}
+  dodoTimeout=setTimeout(()=>{
+    clearInterval(dodoInterval);dodoInterval=null;
+    cycling.textContent=chosen.name;
+    dodoSpinning=false;btn.textContent='Let the dodo decide ↗';
+    btn.disabled=!placesTo.some(p=>p.status==='approved');
+    $('dodo-result-name').textContent=chosen.name;
+    $('dodo-result-modal').hidden=false;
+  },motionAllowed?3250:150);
+}
+function bindPlacesTo(){$('undo-button').onclick=undoPlace;$('undo-dismiss').onclick=hideUndo;$('places-surprise').onclick=chooseDodo;$('dodo-result-close').onclick=closeDodoResult;$('dodo-result-again').onclick=()=>{closeDodoResult();chooseDodo();};$('dodo-result-modal').addEventListener('click',e=>{if(e.target===$('dodo-result-modal'))closeDodoResult();});document.querySelectorAll('.places-tab').forEach(b=>b.onclick=()=>setPlacesTab(b.dataset.listTab));$('places-suggest').onclick=()=>{if(!placesReady())return notify('Wait until the checklist is connected.');$('places-suggest-modal').hidden=false;};
   $('places-suggest-close').onclick=$('places-suggest-cancel').onclick=()=>$('places-suggest-modal').hidden=true;
   $('places-suggest-modal').addEventListener('click',e=>{if(e.target===$('places-suggest-modal'))e.target.hidden=true;});
   $('places-suggest-form').addEventListener('submit',suggestPlaceTo);

@@ -1,19 +1,27 @@
-# Our Places To — update instructions
+# Our Space — Our Places To simplified (upvotes + Dodo picker)
 
-This update adds a private, independent checklist to the existing site. Your existing map collection (`places`) is unchanged.
+## Deployment
 
-## Deploy
-1. Back up your existing live GitHub files.
-2. Upload/replace **index.html**, **styles.css**, and **app.js** with these files. Firebase config and login mappings from the last working app.js are retained.
-3. In Firebase Console → Firestore Database → Rules, replace the full rules text with **firestore.rules** supplied here and click Publish. Do this before testing new checklist writes. The rules include your two existing UID values; double-check these are still accurate.
-4. Reload the GitHub Pages website and check that Our Places To opens from both Home and the sidebar.
-5. Suggest a test idea from Joe, approve with Captain, allocate stars on each account, tick it off.
+1. **Back up your current working GitHub files.**
+2. Replace only `index.html`, `app.js`, and `styles.css` in the existing GitHub Pages repository. Upload them as individual files to the repository root (not the ZIP itself).
+3. Commit. Refresh with Ctrl+Shift+R.
+4. **Do not change Firebase Authentication, Firestore data, or Firestore rules.** This release deliberately reuses `joeStars` and `noemieStars` fields so existing documents remain readable. The existing rules permit the new on/off updates.
 
-## Important
-- The checklist lives in **placesTo** separately from travel map's **places** collection.
-- Approval and stars are restricted to the two signed-in users. Each can only edit their own stars.
-- The 10-star total is checked in the client and Firestore transaction, but the rules enforce only **0–10 per item**, not the aggregate 10-star total. A modified client could exceed the total. Strong server-side enforcement would require a revised allocation model.
-- Completed items remain in the Done tab. Stars are returned to both budgets.
-- No default checklist entries are created.
-- The names/notes of this checklist are stored in Firebase, not in end-to-end encrypted storage; keep that in mind before adding intimate details.
-- No GitHub repository changes alone can activate the Firestore collection permissions; publish Firestore rules separately.
+## Behaviour
+
+- The approval/veto workflow remains unchanged. After approval, Joe and Noémie can each independently toggle a heart (upvote) on or off. Votes mean *I really want this*, not consent.
+- An existing allocation of any number above zero is treated as **one upvote** for that person. No Firestore migration is needed. Next time someone toggles their vote it is saved as 0 or 1.
+- Approved ideas are ordered by total upvotes (0–2), then by newest submission. The submitted date comes from the existing Firestore `createdAt` field. Very old items without a date show a dash.
+- The Dodo Decides picker spins and cycles through approved, incomplete ideas before displaying a result. Selection is uniform regardless of upvotes and does not write to Firebase. A reduced-motion setting skips the spin.
+- Done, suggest, approve, veto, delete, Undo, login, map, syncing and PWA-free hosting are unchanged.
+
+## Testing checklist
+
+- Joe signs in and sees checklist. Captain signs in separately.
+- Existing ideas appear, with old allocations above 0 treated as hearts.
+- Toggle Joe's heart, then confirm that Captain sees it. Toggle Captain's separately.
+- Verify date column and ranking update.
+- Run the picker and confirm it displays an approved idea.
+- Confirm a new suggestion still requires the other account's approval.
+
+Note: This is a frontend update built from the last supplied Our Space files and the latest small-edits release, not a live integration test. In particular, the live site's manually edited wording may differ slightly.
