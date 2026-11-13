@@ -1,14 +1,11 @@
-Our Space — Dodo wheel sync fix
+Our Space — two small Next Stop tweaks
 
-Replace ONLY these TWO files in your GitHub repository root:
-- app.js
+Replace ONLY these two files in the ROOT of your GitHub Pages repository:
 - index.html
+- app.js
 
-Keep styles.css and firestore.rules unchanged. No Firebase changes required.
+What changed:
+1. Removed the sentence beneath “Where to next, little birdie?” on the Next Stop page.
+2. Shortened the mobile/topbar page label from “OUR NEXT STOP” to “NEXT STOP”.
 
-Changes:
-- Wheel caption now follows the wheel's actual rotation and slows with it.
-- Removed 'Every idea gets an equal chance.' from the intro.
-
-After committing, refresh with Ctrl+Shift+R, then test spins with several approved ideas.
-This change has passed a JavaScript syntax check but has not been tested against the live website.
+Do not replace styles.css or change Firebase rules. Existing features and Firebase data are unchanged.
