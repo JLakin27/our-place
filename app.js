@@ -183,16 +183,16 @@ const placesToIncoming=()=>placesTo.filter(p=>p.status==='suggested'&&p.addedBy!
 let undoRecord=null,undoTimer=null;
 function showUndo(p){undoRecord={...p};$('undo-label').textContent=`Removed “${p.name}”.`;$('undo-toast').hidden=false;clearTimeout(undoTimer);undoTimer=setTimeout(hideUndo,10000);}
 function hideUndo(){undoRecord=null;$('undo-toast').hidden=true;clearTimeout(undoTimer);}
-async function undoPlace(){const p=undoRecord;if(!p)return;const saved=await placesToWrite(async()=>{if(isDemo){const item=placesTo.find(x=>x.id===p.id);if(!item||item.status!=='deleted')throw Error('This idea was changed.');Object.assign(item,{status:p.status,joeStars:0,noemieStars:0});delete item.deletedBy;delete item.deletedFrom;saveDemoPlacesTo();}else await firestore.updateDoc(firestore.doc(db,'placesTo',p.id),{status:p.status,deletedBy:firestore.deleteField(),deletedFrom:firestore.deleteField()});});if(saved){hideUndo();notify('Restored ✓ Devils can be allocated again.');}}
+async function undoPlace(){const p=undoRecord;if(!p)return;const saved=await placesToWrite(async()=>{if(isDemo){const item=placesTo.find(x=>x.id===p.id);if(!item||item.status!=='deleted')throw Error('This idea was changed.');Object.assign(item,{status:p.status,joeStars:0,noemieStars:0});delete item.deletedBy;delete item.deletedFrom;saveDemoPlacesTo();}else await firestore.updateDoc(firestore.doc(db,'placesTo',p.id),{status:p.status,deletedBy:firestore.deleteField(),deletedFrom:firestore.deleteField()});});if(saved){hideUndo();notify('Restored ✓ Your 😈 are available again.');}}
 async function removePlace(p){if(!placesReady())return notify('Checklist not connected yet.');if(!confirm(`Remove “${p.name}” from both lists? Neither person is notified. You can undo straight afterwards.`))return;const previous={...p};const ok=await placesToWrite(async()=>{if(isDemo){Object.assign(p,{status:'deleted',deletedBy:currentUser,deletedFrom:p.status,joeStars:0,noemieStars:0});saveDemoPlacesTo();}else await firestore.updateDoc(firestore.doc(db,'placesTo',p.id),{status:'deleted',deletedBy:currentUser,deletedFrom:p.status,joeStars:0,noemieStars:0});});if(ok)showUndo(previous);}
 
 const myStarsKey=()=>currentUser==='Joe'?'joeStars':'noemieStars';
 const totalStars=p=>(p.joeStars||0)+(p.noemieStars||0);
 const placesSpent=()=>placesTo.filter(p=>p.status==='approved').reduce((sum,p)=>sum+(p[myStarsKey()]||0),0);
 function placesReady(){return isDemo||(!placesToBusy&&placesToFresh&&canWrite());}
-function placesToStatus(){const el=$('places-tab-help');if(!el)return;if(!isDemo&&!placesToFresh){el.textContent='Connecting to your private checklist… actions will be available once connected.';return;}el.textContent={approved:'Highest combined 😈 first. Move your 10 devils around whenever you like.',suggested:'Only the other person can approve or veto your suggestion.',done:'Ticked off together. Your 😈 are back in your budgets.'}[placesToTab];}
+function placesToStatus(){const el=$('places-tab-help');if(!el)return;if(!isDemo&&!placesToFresh){el.textContent='Connecting to your private checklist… actions will be available once connected.';return;}el.textContent={approved:'Highest combined 😈 first. Move your 10 😈 around whenever you like.',suggested:'Only the other person can approve or veto your suggestion.',done:'Ticked off together. Your 😈 are back in your budgets.'}[placesToTab];}
 function setPlacesTab(tab){placesToTab=tab;document.querySelectorAll('.places-tab').forEach(b=>b.classList.toggle('active',b.dataset.listTab===tab));renderPlacesTo();}
-function makePlaceButton(text,action,cls='secondary',disabled=false){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=text;b.disabled=disabled;b.onclick=action;return b;}
+function makePlaceButton(text,action,cls='secondary',disabled=false){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=text;b.disabled=disabled;b.onclick=action;if(cls==='mini-delete-btn'){b.title='Remove idea';b.setAttribute('aria-label','Remove idea');}return b;}
 function renderPlacesTo(){
   if(!$('places-to-list'))return;
   const approved=placesTo.filter(p=>p.status==='approved').sort((a,b)=>totalStars(b)-totalStars(a)||a.name.localeCompare(b.name));
@@ -232,12 +232,12 @@ function renderPlacesTo(){
         const controls=document.createElement('div');controls.className='compact-star-controls';
         const own=p[myStarsKey()]||0;
         controls.append(makePlaceButton('−',()=>adjustPlacesStars(p,-1),'mini-star-btn',!placesReady()||own===0));
-        const count=document.createElement('span');count.className='own-stars';count.textContent=String(own);count.title='Your allocated devils';controls.append(count);
+        const count=document.createElement('span');count.className='own-stars';count.textContent=String(own);count.title='Your allocated 😈';controls.append(count);
         controls.append(makePlaceButton('+',()=>adjustPlacesStars(p,1),'mini-star-btn',!placesReady()||placesSpent()>=10));
         cell(tr,controls,'controls-cell');
         const actions=document.createElement('div');actions.className='compact-row-actions';
         actions.append(makePlaceButton('✓ Done',()=>markPlaceDone(p),'mini-done-btn',!placesReady()));
-        actions.append(makePlaceButton('⋯',()=>removePlace(p),'mini-delete-btn',!placesReady()));
+        actions.append(makePlaceButton('🗑️',()=>removePlace(p),'mini-delete-btn',!placesReady()));
         cell(tr,actions,'done-cell');
       }else if(placesToTab==='suggested'){
         const nameCell=cell(tr,p.name,'priority-name');nameCell.title=p.notes||p.name;
@@ -245,10 +245,10 @@ function renderPlacesTo(){
         if(p.addedBy!==currentUser){const actions=document.createElement('div');actions.className='compact-decision';
           actions.append(makePlaceButton('Approve ✓',()=>decidePlace(p,'approved'),'mini-approve-btn',!placesReady()));
           actions.append(makePlaceButton('Veto',()=>decidePlace(p,'vetoed'),'mini-done-btn',!placesReady()));
-          actions.append(makePlaceButton('⋯',()=>removePlace(p),'mini-delete-btn',!placesReady()));cell(tr,actions,'decision-cell');
-        }else{const controls=document.createElement('div');controls.className='compact-row-actions';controls.append(document.createTextNode(`Waiting for ${otherUser(currentUser)} `));controls.append(makePlaceButton('⋯',()=>removePlace(p),'mini-delete-btn',!placesReady()));cell(tr,controls,'pending-cell');}
+          actions.append(makePlaceButton('🗑️',()=>removePlace(p),'mini-delete-btn',!placesReady()));cell(tr,actions,'decision-cell');
+        }else{const controls=document.createElement('div');controls.className='compact-row-actions';controls.append(document.createTextNode(`Waiting for ${otherUser(currentUser)} `));controls.append(makePlaceButton('🗑️',()=>removePlace(p),'mini-delete-btn',!placesReady()));cell(tr,controls,'pending-cell');}
       }else{
-        cell(tr,p.name,'priority-name');const doneControls=document.createElement('div');doneControls.className='compact-row-actions';doneControls.append(document.createTextNode('✓ Completed '));doneControls.append(makePlaceButton('⋯',()=>removePlace(p),'mini-delete-btn',!placesReady()));cell(tr,doneControls,'completed-cell');
+        cell(tr,p.name,'priority-name');const doneControls=document.createElement('div');doneControls.className='compact-row-actions';doneControls.append(document.createTextNode('✓ Completed '));doneControls.append(makePlaceButton('🗑️',()=>removePlace(p),'mini-delete-btn',!placesReady()));cell(tr,doneControls,'completed-cell');
       }
       tbody.append(tr);
     });
