@@ -26,13 +26,127 @@ const showState = p => ({suggested:'Suggested',approved:'Approved',visited:'Visi
 const markerStyle = p => ({suggested:'hers',approved:'together',visited:'done',vetoed:'vetoed'}[stateOf(p)]||'hers');
 const otherUser = name => name==='Joe'?'Noémie':'Joe';
 const incoming = () => pins.filter(p=>stateOf(p)==='suggested' && nameFor(p)!==currentUser);
+/* Profiles and kisses are separate from the map and checklist. */
+const STATUS_CHOICES=['🦤','❤️','🥰','🥺','😂','😴','😈','😡'];
+const AVATAR_CHOICES=['🦤','🐥','🦊','🐻','🐸','👽','🐈','🐧'];
+const AVATAR_COLOURS=['#f7d76b','#e9a88e','#b9dccb','#cdb9e8','#bfd6f1','#f1c7d2','#d1d2ce','#f1ca9e'];
+const defaultProfile=name=>({avatarEmoji:name==='Noémie'?'🦤':'🦊',statusEmoji:'',colour:name==='Noémie'?'#f7d76b':'#b9dccb'});
+let sharedProfiles={}, kisses=[], unsubscribeProfiles=null, unsubscribeKisses=null, profileDraft=null, profilesReady=false,kissesReady=false,profileSaving=false,kissSending=false;
+const nameForUid=uid=>uid===USER_UIDS.Joe?'Joe':uid===USER_UIDS['Noémie']?'Noémie':null;
+const otherUid=()=>USER_UIDS[otherUser(currentUser)];
+const currentProfile=name=>({...defaultProfile(name),...(sharedProfiles[name]||{})});
+const emojiOkay=value=>{const chars=[...value.trim()];return chars.length>0&&chars.length<=8&&!/[\x00-\x1f<>]/.test(value);};
+function showProfileStatus(){
+  const other=otherUser(currentUser);
+  for(const [kind,name] of [['own',currentUser],['other',other]]){
+    const p=currentProfile(name), avatar=$(kind+'-avatar'), status=$(kind+'-status');
+    avatar.firstChild.textContent=p.avatarEmoji;
+    avatar.style.setProperty('--avatar-colour',p.colour);
+    status.textContent=p.statusEmoji;
+    status.hidden=!p.statusEmoji;
+    $(kind+'-profile-name').textContent=name;
+    $(kind+'-profile-button').setAttribute('aria-label',kind==='own'?'Edit your profile':`View ${name}'s profile`);
+  }
+}
+function populateEmojiChoices(container,values,key){
+  const root=$(container);root.replaceChildren();
+  for(const val of values){
+    const b=document.createElement('button');b.type='button';b.className='profile-emoji-option';b.textContent=val;b.setAttribute('aria-label',val);b.setAttribute('aria-pressed',String(profileDraft[key]===val));
+    b.onclick=()=>{profileDraft[key]=val; if(key==='avatarEmoji')$('custom-avatar').value='';else $('custom-status').value='';refreshProfileDraft();};root.append(b);
+  }
+}
+function refreshProfileDraft(){
+  $('profile-avatar-preview').textContent=profileDraft.avatarEmoji;
+  $('profile-avatar-preview').style.background=profileDraft.colour;
+  populateEmojiChoices('avatar-choices',AVATAR_CHOICES,'avatarEmoji');
+  populateEmojiChoices('status-choices',STATUS_CHOICES,'statusEmoji');
+  const root=$('profile-colours');root.replaceChildren();
+  for(const colour of AVATAR_COLOURS){const b=document.createElement('button');b.type='button';b.className='profile-colour-option';b.style.background=colour;b.setAttribute('aria-label','Choose '+colour);b.setAttribute('aria-pressed',String(profileDraft.colour===colour));b.textContent=profileDraft.colour===colour?'✓':'';b.onclick=()=>{profileDraft.colour=colour;refreshProfileDraft();};root.append(b);}
+}
+function openOwnProfile(){
+  profileDraft={...currentProfile(currentUser)};
+  $('profile-display-name').textContent=currentUser;
+  $('profile-heading').textContent=currentUser+'’s profile';
+  $('custom-avatar').value='';$('custom-status').value='';$('profile-error').textContent='';
+  refreshProfileDraft();$('profile-modal').hidden=false;
+}
+function openOtherProfile(){
+  const name=otherUser(currentUser),p=currentProfile(name);
+  $('other-profile-heading').textContent=name;
+  $('other-profile-display').textContent=name;
+  $('other-profile-vibe').textContent=p.statusEmoji?'Current vibe: '+p.statusEmoji:'No status selected';
+  $('other-profile-large').textContent=p.avatarEmoji;
+  $('other-profile-large').style.background=p.colour;
+  $('other-profile-modal').hidden=false;
+}
+function closeProfileDialogs(){$('profile-modal').hidden=true;$('other-profile-modal').hidden=true;}
+async function saveProfile(e){
+  e.preventDefault();if(profileSaving)return;
+  const avatar=$('custom-avatar').value.trim()||profileDraft.avatarEmoji;
+  const status=$('custom-status').value.trim()||profileDraft.statusEmoji;
+  if(!emojiOkay(avatar)||(status&&!emojiOkay(status))){$('profile-error').textContent='Please choose a short emoji for your avatar and status.';return;}
+  const next={avatarEmoji:avatar,statusEmoji:status,colour:profileDraft.colour};
+  if(!AVATAR_COLOURS.includes(next.colour)){ $('profile-error').textContent='Please pick one of the colours.';return;}
+  if(!isDemo&&!canWrite()){ $('profile-error').textContent='Please wait until Connected appears.';return;}
+  profileSaving=true;const btn=$('save-profile');btn.disabled=true;btn.textContent='Saving…';$('profile-error').textContent='';
+  try{
+    if(isDemo){sharedProfiles[currentUser]=next;localStorage.setItem('our-space-demo-profiles',JSON.stringify(sharedProfiles));}
+    else await firestore.setDoc(firestore.doc(db,'profiles',USER_UIDS[currentUser]),{...next,updatedAt:firestore.serverTimestamp()});
+    sharedProfiles[currentUser]=next;showProfileStatus();closeProfileDialogs();notify('Profile saved ✓');
+  }catch(err){$('profile-error').textContent='Could not save: '+err.message;}
+  finally{profileSaving=false;btn.disabled=false;btn.textContent='Save profile ✓';}
+}
+async function sendKiss(){
+  if(kissSending)return;
+  if(!isDemo&&!canWrite())return notify('Wait until Connected appears to send a kiss.');
+  kissSending=true;const btn=$('send-kiss');btn.disabled=true;btn.textContent='Sending…';
+  try{
+    if(isDemo){kisses.unshift({id:crypto.randomUUID(),fromUid:USER_UIDS[currentUser],toUid:otherUid(),createdAt:new Date()});localStorage.setItem('our-space-demo-kisses',JSON.stringify(kisses));refreshNotificationsWithKisses();}
+    else await firestore.addDoc(firestore.collection(db,'kisses'),{fromUid:USER_UIDS[currentUser],toUid:otherUid(),createdAt:firestore.serverTimestamp()});
+    closeProfileDialogs();notify('Kiss sent 😘');
+  }catch(err){notify('Could not send kiss: '+err.message);}
+  finally{kissSending=false;btn.disabled=false;btn.textContent='😘 Send a kiss';}
+}
+async function dismissKiss(kiss){
+  if(!isDemo&&!canWrite())return notify('Please reconnect before opening your kiss.');
+  try{
+    if(isDemo){kisses=kisses.filter(x=>x.id!==kiss.id);localStorage.setItem('our-space-demo-kisses',JSON.stringify(kisses));refreshNotificationsWithKisses();}
+    else await firestore.deleteDoc(firestore.doc(db,'kisses',kiss.id));
+    notify('😘');
+  }catch(err){notify('Could not open kiss: '+err.message);}
+}
+function refreshNotificationsWithKisses(){
+  const count=incoming().length+placesToIncoming().length+kisses.filter(k=>k.toUid===USER_UIDS[currentUser]).length;
+  $('notifications-count').textContent=count;
+  $('notifications-btn').classList.toggle('has-new',count>0);
+  refreshHome();renderNotifications();
+}
+function startProfileListeners(uid){
+  if(isDemo){try{sharedProfiles=JSON.parse(localStorage.getItem('our-space-demo-profiles')||'{}');kisses=JSON.parse(localStorage.getItem('our-space-demo-kisses')||'[]');}catch{sharedProfiles={};kisses=[];}showProfileStatus();refreshNotificationsWithKisses();return;}
+  unsubscribeProfiles=firestore.onSnapshot(firestore.collection(db,'profiles'),snapshot=>{
+    sharedProfiles={};for(const item of snapshot.docs){const name=nameForUid(item.id);if(name)sharedProfiles[name]=item.data();}
+    profilesReady=!snapshot.metadata.fromCache;showProfileStatus();
+  },err=>{notify('Profiles could not load: '+err.message);});
+  const qry=firestore.query(firestore.collection(db,'kisses'),firestore.where('toUid','==',uid));
+  unsubscribeKisses=firestore.onSnapshot(qry,snapshot=>{
+    kisses=snapshot.docs.map(d=>({id:d.id,...d.data()}));kissesReady=!snapshot.metadata.fromCache;refreshNotificationsWithKisses();
+  },err=>{notify('Kiss notifications could not load: '+err.message);});
+}
+function bindProfiles(){
+  $('own-profile-button').onclick=openOwnProfile;$('other-profile-button').onclick=openOtherProfile;
+  $('close-profile').onclick=()=>$('profile-modal').hidden=true;
+  $('close-other-profile').onclick=()=>$('other-profile-modal').hidden=true;
+  $('send-kiss').onclick=sendKiss;$('profile-form').onsubmit=saveProfile;
+  $('clear-profile-status').onclick=()=>{profileDraft.statusEmoji='';$('custom-status').value='';refreshProfileDraft();};
+  document.querySelectorAll('#profile-modal,#other-profile-modal').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.hidden=true;}));
+}
 const DODO_QUOTES=['🦤 The dodo approves this message.','Where to next, little birdie? 🐦','More adventures pending approval 👀','🦤 Dodo headquarters, reporting for duty.'];
 function refreshHome(){
   const greeting=$('home-greeting');if(!greeting)return;
   greeting.textContent=currentUser==='Noémie'?'HEY, CAPTAIN 👀':'HEY, JOE 👋';
-  const pendingTrips=incoming().length,pendingIdeas=placesToIncoming().length,total=pendingTrips+pendingIdeas;
+  const pendingTrips=incoming().length,pendingIdeas=placesToIncoming().length,pendingKisses=kisses.filter(k=>k.toUid===USER_UIDS[currentUser]).length,total=pendingTrips+pendingIdeas+pendingKisses;
   $('home-pending').textContent=total;
-  $('home-attention').textContent=total?`${pendingTrips} trip ${pendingTrips===1?'suggestion':'suggestions'} · ${pendingIdeas} Places To ${pendingIdeas===1?'idea':'ideas'} waiting for you`:'All caught up — nothing waiting for your approval.';
+  $('home-attention').textContent=total?`${pendingTrips} trip ${pendingTrips===1?'suggestion':'suggestions'} · ${pendingIdeas} Places To ${pendingIdeas===1?'idea':'ideas'} · ${pendingKisses} ${pendingKisses===1?'kiss':'kisses'} waiting for you`:'All caught up — nothing new right now.';
   const activities=[...pins.map(x=>({label:`${nameFor(x)} suggested ${x.name} 🌍`,time:x.createdAt})),...placesTo.filter(x=>x.status!=='deleted').map(x=>({label:`${x.addedBy} added ${x.name} 😈`,time:x.createdAt}))];
   const millis=x=>x?.toMillis?.()|| (x?.seconds?x.seconds*1000:Date.parse(x||'')||0);
   activities.sort((a,b)=>millis(b.time)-millis(a.time));
@@ -92,7 +206,7 @@ async function confirmedWrite(operation, button=null){
 function initMap(){map=L.map('map',{zoomControl:false,worldCopyJump:true}).setView([46,2],4);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);L.control.zoom({position:'bottomright'}).addTo(map);map.on('click',e=>showPinModal(e.latlng));}
 function fitPins(){const visible=pins.filter(p=>stateOf(p)!=='vetoed'&&(filter==='All'||showState(p)===filter));if(!visible.length){map.setView([46,2],4);return;}map.fitBounds(L.latLngBounds(visible.map(p=>[p.lat,p.lng])).pad(.25),{maxZoom:7});}
 function navigate(page){if(page!=='map'&&page!=='home'&&!['places','positions','moments'].includes(page))page='home';currentPage=page;const isMap=page==='map';$('home-view').hidden=page!=='home';$('map-view').hidden=!isMap;$('soon-view').hidden=page==='home'||isMap||page==='places';$('places-view').hidden=page!=='places';if(page==='places')renderPlacesTo();$('map-sidebar').hidden=!isMap;document.querySelectorAll('.nav-link').forEach(b=>b.classList.toggle('selected',b.dataset.section===page));$('page-eyebrow').textContent=page==='home'?'OUR SPACE':isMap?'OUR NEXT STOP':page.toUpperCase();closeSidebar();if(isMap)setTimeout(()=>{map.invalidateSize();fitPins();},70);if(!isMap&&page!=='home'&&page!=='places'){const info={places:['😈','Our places to','A checklist for all those places. We can build adding items, marking them done and tracking who suggested them later.'],positions:['🥵','Our positions','A private list with our own checkboxes is coming soon.'],moments:['📸','Our moments','Shared photos, stories and favourites — all in one place.']}[page];$('soon-icon').textContent=info[0];$('soon-title').textContent=info[1];$('soon-text').textContent=info[2];}history.replaceState(null,'',page==='home'?location.pathname+location.search:'#'+page);}
-function render(){const suggestions=pins.filter(p=>stateOf(p)==='suggested'),approved=pins.filter(p=>stateOf(p)==='approved'),visited=pins.filter(p=>stateOf(p)==='visited');$('wishlist-count').textContent=suggestions.length;$('agreed-count').textContent=approved.length;$('done-count').textContent=visited.length;$('home-count').textContent=pins.filter(p=>stateOf(p)!=='vetoed').length;$('home-pending').textContent=incoming().length;$('notifications-count').textContent=incoming().length+placesToIncoming().length;$('notifications-btn').classList.toggle('has-new',incoming().length+placesToIncoming().length>0);$('list-count').textContent=`${pins.length} saved places`;
+function render(){const suggestions=pins.filter(p=>stateOf(p)==='suggested'),approved=pins.filter(p=>stateOf(p)==='approved'),visited=pins.filter(p=>stateOf(p)==='visited');$('wishlist-count').textContent=suggestions.length;$('agreed-count').textContent=approved.length;$('done-count').textContent=visited.length;$('home-count').textContent=pins.filter(p=>stateOf(p)!=='vetoed').length;$('home-pending').textContent=incoming().length;$('notifications-count').textContent=incoming().length+placesToIncoming().length+kisses.filter(k=>k.toUid===USER_UIDS[currentUser]).length;$('notifications-btn').classList.toggle('has-new',incoming().length+placesToIncoming().length+kisses.filter(k=>k.toUid===USER_UIDS[currentUser]).length>0);$('list-count').textContent=`${pins.length} saved places`;
   for(const marker of savedMarkers.values())marker.remove();savedMarkers.clear();
   const visible=pins.filter(p=>filter==='All'?stateOf(p)!=='vetoed':showState(p)===filter);
   for(const place of visible){if(!Number.isFinite(place.lat)||!Number.isFinite(place.lng))continue;const css=markerStyle(place);const icon=L.divIcon({className:'',html:`<div class="pin-dot ${css}"></div>`,iconSize:[25,25],iconAnchor:[12,24]});const marker=L.marker([place.lat,place.lng],{icon}).addTo(map);const box=document.createElement('div');box.innerHTML=`<b>${escapeHtml(place.name)}</b><br>${showState(place)} · ${escapeHtml(nameFor(place))}${place.notes?`<p>${escapeHtml(place.notes)}</p>`:''}`;const action=document.createElement('button');action.className='popup-delete';action.textContent='View details ↗';action.onclick=()=>openDetails(place.id);box.append(action);marker.bindPopup(box);savedMarkers.set(place.id,marker);}
@@ -109,7 +223,13 @@ function openDetails(id){const p=pins.find(x=>x.id===id);if(!p)return;selectedId
   button('Share on WhatsApp ↗',()=>sharePlace(p));button('Delete',()=>deletePlace(p),'danger',true);$('detail-modal').hidden=false;updateConnectionUI();}
 function closeDetails(){if(writeInProgress)return;$('detail-modal').hidden=true;selectedId=null;$('confirm-visited').textContent='Mark as visited ✓';}
 async function sharePlace(p){const url=new URL(location.href);url.hash='place-'+encodeURIComponent(p.id);const msg=`${nameFor(p)} suggested ${p.name} 🌍 — approve or veto? 👀\n${url.href}`;if(navigator.share){try{await navigator.share({text:msg});return;}catch(e){if(e.name==='AbortError')return;}}try{await navigator.clipboard.writeText(msg);notify('Message copied — paste it into WhatsApp!');}catch{window.prompt('Copy this message for WhatsApp:',msg);}}
-function renderNotifications(){const list=$('notifications-list');list.replaceChildren();const items=incoming();const extra=placesToIncoming();if(!items.length&&!extra.length){list.innerHTML='<p class="empty">Nothing to vote on right now.</p>';return;}for(const p of extra){const b=document.createElement('button');b.className='notification-row';b.innerHTML=`<strong>😈 ${escapeHtml(p.name)}</strong><span>${escapeHtml(p.addedBy)} suggested a new checklist idea · Review →</span>`;b.onclick=()=>{$('notifications-modal').hidden=true;placesToTab='suggested';navigate('places');setPlacesTab('suggested');};list.append(b);}for(const p of items){const b=document.createElement('button');b.className='notification-row';b.innerHTML=`<strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(nameFor(p))} suggested this · Review →</span>`;b.onclick=()=>{$('notifications-modal').hidden=true;navigate('map');openDetails(p.id);};list.append(b);}}
+function renderNotifications(){
+  const list=$('notifications-list');list.replaceChildren();const items=incoming(),extra=placesToIncoming(),mail=kisses.filter(k=>k.toUid===USER_UIDS[currentUser]);
+  if(!items.length&&!extra.length&&!mail.length){list.innerHTML='<p class="empty">All caught up for now.</p>';return;}
+  for(const k of mail){const b=document.createElement('button');b.className='notification-row kiss-notification';b.innerHTML=`<strong>😘 A little delivery from ${escapeHtml(nameForUid(k.fromUid)||'someone special')}</strong><span>Tap to open your kiss</span>`;b.onclick=()=>dismissKiss(k);list.append(b);}
+  for(const p of extra){const b=document.createElement('button');b.className='notification-row';b.innerHTML=`<strong>😈 ${escapeHtml(p.name)}</strong><span>${escapeHtml(p.addedBy)} suggested a new checklist idea · Review →</span>`;b.onclick=()=>{$('notifications-modal').hidden=true;placesToTab='suggested';navigate('places');setPlacesTab('suggested');};list.append(b);}
+  for(const p of items){const b=document.createElement('button');b.className='notification-row';b.innerHTML=`<strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(nameFor(p))} suggested this · Review →</span>`;b.onclick=()=>{$('notifications-modal').hidden=true;navigate('map');openDetails(p.id);};list.append(b);}
+}
 function showPinModal(latlng=null,suggestedName=''){pendingLatLng=latlng||map.getCenter();$('pin-form').reset();$('pin-name').value=suggestedName;$('pin-coords').textContent=`📍 ${pendingLatLng.lat.toFixed(4)}, ${pendingLatLng.lng.toFixed(4)}`;$('pin-modal').hidden=false;updateConnectionUI();if(previewMarker)previewMarker.remove();previewMarker=L.circleMarker(pendingLatLng,{radius:9,color:'#fff',weight:3,fillColor:'#df8a69',fillOpacity:1}).addTo(map);setTimeout(()=>$('pin-name').focus(),50);}
 function closePinModal(){if(writeInProgress)return;$('pin-modal').hidden=true;if(previewMarker)previewMarker.remove();previewMarker=null;}
 function openSidebar(){$('sidebar').classList.add('open');$('shade').classList.add('show');}
@@ -171,10 +291,10 @@ function startListening(){
     notify('Database connection failed: '+err.message);
   });
 }
-async function initFirebase(){const [appSdk,authSdk,dbSdk]=await Promise.all([import('https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js'),import('https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js')]);firestore=dbSdk;authApi=authSdk;const app=appSdk.initializeApp(firebaseConfig);auth=authSdk.getAuth(app);db=dbSdk.getFirestore(app);authSdk.onAuthStateChanged(auth,async user=>{if(unsubscribe){unsubscribe();unsubscribe=null;}if(unsubscribePlacesTo){unsubscribePlacesTo();unsubscribePlacesTo=null;}placesToFresh=false;if(!user){serverFresh=false;hasPendingWrites=false;everConnected=false;writeInProgress=false;pins=[];placesTo=[];render();renderPlacesTo();$('auth-modal').hidden=false;$('sign-out').hidden=true;$('mobile-sign-out').hidden=true;connectionStatus('Sign in required');return;}serverFresh=false;hasPendingWrites=false;syncError=false;everConnected=false;updateConnectionUI();currentUser=user.uid===USER_UIDS.Joe?'Joe':user.uid===USER_UIDS['Noémie']?'Noémie':null;if(!currentUser){await authSdk.signOut(auth);$('auth-error').textContent='This account is not on the two-person allowlist. Check the configured UIDs.';return;}$('auth-modal').hidden=true;$('identity').textContent=`Signed in as ${currentUser}`;$('sign-out').hidden=false;$('mobile-sign-out').hidden=false;refreshHome();connectionStatus('Connecting');try{startListening();startPlacesToListener();}catch(err){connectionStatus('Permission error');notify('Database connection failed: '+err.message);}});}
+async function initFirebase(){const [appSdk,authSdk,dbSdk]=await Promise.all([import('https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js'),import('https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js')]);firestore=dbSdk;authApi=authSdk;const app=appSdk.initializeApp(firebaseConfig);auth=authSdk.getAuth(app);db=dbSdk.getFirestore(app);authSdk.onAuthStateChanged(auth,async user=>{if(unsubscribe){unsubscribe();unsubscribe=null;}if(unsubscribePlacesTo){unsubscribePlacesTo();unsubscribePlacesTo=null;}if(unsubscribeProfiles){unsubscribeProfiles();unsubscribeProfiles=null;}if(unsubscribeKisses){unsubscribeKisses();unsubscribeKisses=null;}profilesReady=false;kissesReady=false;sharedProfiles={};kisses=[];placesToFresh=false;if(!user){serverFresh=false;hasPendingWrites=false;everConnected=false;writeInProgress=false;pins=[];placesTo=[];render();renderPlacesTo();$('auth-modal').hidden=false;$('own-profile-button').hidden=true;$('other-profile-button').hidden=true;$('sign-out').hidden=true;$('mobile-sign-out').hidden=true;connectionStatus('Sign in required');return;}serverFresh=false;hasPendingWrites=false;syncError=false;everConnected=false;updateConnectionUI();currentUser=user.uid===USER_UIDS.Joe?'Joe':user.uid===USER_UIDS['Noémie']?'Noémie':null;if(!currentUser){await authSdk.signOut(auth);$('auth-error').textContent='This account is not on the two-person allowlist. Check the configured UIDs.';return;}$('auth-modal').hidden=true;$('own-profile-button').hidden=false;$('other-profile-button').hidden=false;showProfileStatus();$('identity').textContent=`Signed in as ${currentUser}`;$('sign-out').hidden=false;$('mobile-sign-out').hidden=false;refreshHome();connectionStatus('Connecting');try{startListening();startPlacesToListener();startProfileListeners(user.uid);}catch(err){connectionStatus('Permission error');notify('Database connection failed: '+err.message);}});}
 function openDeepLink(){const value=decodeURIComponent(location.hash.slice(1));if(!value.startsWith('place-'))return;const id=value.slice(6);if(pins.some(p=>p.id===id)){navigate('map');openDetails(id);}}
-function bindEvents(){document.querySelectorAll('.nav-link').forEach(b=>b.onclick=()=>navigate(b.dataset.section));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>navigate(b.dataset.go));$('back-home').onclick=()=>navigate('home');$('soon-map').onclick=()=>navigate('map');$('open-sidebar').onclick=openSidebar;$('close-sidebar').onclick=closeSidebar;$('shade').onclick=closeSidebar;$('add-place').onclick=()=>showPinModal();$('side-add').onclick=()=>{closeSidebar();showPinModal();};$('close-pin').onclick=closePinModal;$('cancel-pin').onclick=closePinModal;$('pin-form').addEventListener('submit',createPlace);$('search-form').addEventListener('submit',searchPlaces);$('fit-pins').onclick=fitPins;document.querySelectorAll('.filter').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;document.querySelectorAll('.filter').forEach(x=>x.classList.toggle('active',x===b));render();});$('notifications-btn').onclick=()=>{$('notifications-modal').hidden=false;};$('close-notifications').onclick=()=>{$('notifications-modal').hidden=true;};$('close-detail').onclick=closeDetails;$('confirm-visited').onclick=saveVisit;document.querySelectorAll('.backdrop').forEach(el=>el.addEventListener('click',e=>{if(e.target!==el)return;if(el.id==='pin-modal')closePinModal();if(el.id==='detail-modal')closeDetails();if(el.id==='notifications-modal')el.hidden=true;}));document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;closePinModal();closeDetails();$('notifications-modal').hidden=true;$('search-results').hidden=true;closeSidebar();});$('demo-user').onchange=e=>{currentUser=e.target.value;localStorage.setItem('our-site-demo-user',currentUser);$('identity').textContent=`Preview as ${currentUser}`;render();refreshHome();};$('auth-form').addEventListener('submit',async e=>{e.preventDefault();$('auth-error').textContent='';const b=$('auth-form').querySelector('button');b.disabled=true;try{const username=$('username').value.trim().toLowerCase();const loginEmail=LOGIN_EMAILS[username];if(!loginEmail){$('auth-error').textContent='Use Joe or Captain as your username.';return;}await authApi.signInWithEmailAndPassword(auth,loginEmail,$('password').value);$('password').value='';}catch(err){$('auth-error').textContent=err.code==='auth/invalid-credential'?'Incorrect username or password.':err.message;}finally{b.disabled=false;}});$('sign-out').onclick=()=>authApi.signOut(auth);$('mobile-sign-out').onclick=()=>{if(confirm('Sign out of Our Space?'))authApi.signOut(auth);};$('home-review').onclick=()=>{$('notifications-modal').hidden=false;};window.addEventListener('offline',()=>{serverFresh=false;updateConnectionUI();});window.addEventListener('online',()=>{serverFresh=false;updateConnectionUI();});window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#place-'))openDeepLink();else if(location.hash==='#map')navigate('map');else if(location.hash==='#home')navigate('home');});}
-async function main(){initMap();bindEvents();bindPlacesTo();navigate(location.hash==='#map'?'map':'home');if(isDemo){$('preview').hidden=false;connectionStatus('Local preview');try{const stored=JSON.parse(localStorage.getItem(demoKey));pins=(Array.isArray(stored)?stored:STARTERS.map(p=>({...p}))).map(p=>p.id==='starter-norway'&&p.notes==='Northern lights and beautiful views, one day.'?{...p,notes:'fjords 😍😍😍'}:p);}catch{pins=STARTERS.map(p=>({...p}));}currentUser=localStorage.getItem('our-site-demo-user')||'Joe';$('demo-user').value=currentUser;$('identity').textContent=`Preview as ${currentUser}`;persistDemo();loadDemoPlacesTo();refreshHome();openDeepLink();}else{try{await initFirebase();}catch(err){connectionStatus('Connection error');notify('Firebase failed to load: '+err.message);}}}
+function bindEvents(){bindProfiles();document.querySelectorAll('.nav-link').forEach(b=>b.onclick=()=>navigate(b.dataset.section));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>navigate(b.dataset.go));$('back-home').onclick=()=>navigate('home');$('soon-map').onclick=()=>navigate('map');$('open-sidebar').onclick=openSidebar;$('close-sidebar').onclick=closeSidebar;$('shade').onclick=closeSidebar;$('add-place').onclick=()=>showPinModal();$('side-add').onclick=()=>{closeSidebar();showPinModal();};$('close-pin').onclick=closePinModal;$('cancel-pin').onclick=closePinModal;$('pin-form').addEventListener('submit',createPlace);$('search-form').addEventListener('submit',searchPlaces);$('fit-pins').onclick=fitPins;document.querySelectorAll('.filter').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;document.querySelectorAll('.filter').forEach(x=>x.classList.toggle('active',x===b));render();});$('notifications-btn').onclick=()=>{$('notifications-modal').hidden=false;};$('close-notifications').onclick=()=>{$('notifications-modal').hidden=true;};$('close-detail').onclick=closeDetails;$('confirm-visited').onclick=saveVisit;document.querySelectorAll('.backdrop').forEach(el=>el.addEventListener('click',e=>{if(e.target!==el)return;if(el.id==='pin-modal')closePinModal();if(el.id==='detail-modal')closeDetails();if(el.id==='notifications-modal')el.hidden=true;}));document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;closePinModal();closeDetails();$('notifications-modal').hidden=true;$('search-results').hidden=true;closeSidebar();});$('demo-user').onchange=e=>{currentUser=e.target.value;localStorage.setItem('our-site-demo-user',currentUser);$('identity').textContent=`Preview as ${currentUser}`;showProfileStatus();render();refreshNotificationsWithKisses();};$('auth-form').addEventListener('submit',async e=>{e.preventDefault();$('auth-error').textContent='';const b=$('auth-form').querySelector('button');b.disabled=true;try{const username=$('username').value.trim().toLowerCase();const loginEmail=LOGIN_EMAILS[username];if(!loginEmail){$('auth-error').textContent='Use Joe or Captain as your username.';return;}await authApi.signInWithEmailAndPassword(auth,loginEmail,$('password').value);$('password').value='';}catch(err){$('auth-error').textContent=err.code==='auth/invalid-credential'?'Incorrect username or password.':err.message;}finally{b.disabled=false;}});$('sign-out').onclick=()=>authApi.signOut(auth);$('mobile-sign-out').onclick=()=>{if(confirm('Sign out of Our Space?'))authApi.signOut(auth);};$('home-review').onclick=()=>{$('notifications-modal').hidden=false;};window.addEventListener('offline',()=>{serverFresh=false;updateConnectionUI();});window.addEventListener('online',()=>{serverFresh=false;updateConnectionUI();});window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#place-'))openDeepLink();else if(location.hash==='#map')navigate('map');else if(location.hash==='#home')navigate('home');});}
+async function main(){initMap();bindEvents();bindPlacesTo();navigate(location.hash==='#map'?'map':'home');if(isDemo){$('preview').hidden=false;connectionStatus('Local preview');try{const stored=JSON.parse(localStorage.getItem(demoKey));pins=(Array.isArray(stored)?stored:STARTERS.map(p=>({...p}))).map(p=>p.id==='starter-norway'&&p.notes==='Northern lights and beautiful views, one day.'?{...p,notes:'fjords 😍😍😍'}:p);}catch{pins=STARTERS.map(p=>({...p}));}currentUser=localStorage.getItem('our-site-demo-user')||'Joe';$('demo-user').value=currentUser;$('identity').textContent=`Preview as ${currentUser}`;persistDemo();loadDemoPlacesTo();$('own-profile-button').hidden=false;$('other-profile-button').hidden=false;startProfileListeners(USER_UIDS[currentUser]);refreshHome();openDeepLink();}else{try{await initFirebase();}catch(err){connectionStatus('Connection error');notify('Firebase failed to load: '+err.message);}}}
 
 
 /* OUR PLACES TO — independent from the travel map, stored in /placesTo. */
@@ -256,7 +376,7 @@ function renderPlacesTo(){
     });
     table.append(tbody);wrap.append(table);root.append(wrap);
   }
-  const count=incoming().length+placesToIncoming().length;
+  const count=incoming().length+placesToIncoming().length+kisses.filter(k=>k.toUid===USER_UIDS[currentUser]).length;
   $('notifications-count').textContent=count;
   $('notifications-btn').classList.toggle('has-new',count>0);
   renderNotifications();refreshHome();

@@ -1,27 +1,30 @@
-# Our Space — Our Places To simplified (upvotes + Dodo picker)
+# Our Space — Profiles + Send a Kiss 😘
 
-## Deployment
+This is an incremental release based on the last working **Dodo wheel sync fix**. Existing map and checklist logic, Firebase IDs, logins and saved records are retained.
 
-1. **Back up your current working GitHub files.**
-2. Replace only `index.html`, `app.js`, and `styles.css` in the existing GitHub Pages repository. Upload them as individual files to the repository root (not the ZIP itself).
-3. Commit. Refresh with Ctrl+Shift+R.
-4. **Do not change Firebase Authentication, Firestore data, or Firestore rules.** This release deliberately reuses `joeStars` and `noemieStars` fields so existing documents remain readable. The existing rules permit the new on/off updates.
+## Deployment (IMPORTANT: two locations)
 
-## Behaviour
+1. Make a backup of your current GitHub files (Code → Download ZIP).
+2. In **Firebase Console → Firestore Database → Rules**, replace the entire rules editor text with the contents of `firestore.rules` from this package and click **Publish**. This retains the rules for your existing `places` and `placesTo` collections, and adds two new private collections: `profiles` and `kisses`. Publish **before testing the new UI**.
+3. In your GitHub repository root, upload/replace **only** `index.html`, `app.js`, and `styles.css` from this ZIP. Commit to your GitHub Pages branch. Do not upload the ZIP itself as your website.
+4. Refresh your existing site using Ctrl+Shift+R. Both accounts and existing records remain unchanged. No new Firebase Auth users are required.
+5. Test with both logins, ideally in different browsers: Joe edits his profile; Captain sees Joe's avatar/status; Joe sends a kiss; Captain opens the bell to see it and taps it to dismiss. Test a travel map pin and a checklist vote as regression checks.
 
-- The approval/veto workflow remains unchanged. After approval, Joe and Noémie can each independently toggle a heart (upvote) on or off. Votes mean *I really want this*, not consent.
-- An existing allocation of any number above zero is treated as **one upvote** for that person. No Firestore migration is needed. Next time someone toggles their vote it is saved as 0 or 1.
-- Approved ideas are ordered by total upvotes (0–2), then by newest submission. The submitted date comes from the existing Firestore `createdAt` field. Very old items without a date show a dash.
-- The Dodo Decides picker spins and cycles through approved, incomplete ideas before displaying a result. Selection is uniform regardless of upvotes and does not write to Firebase. A reduced-motion setting skips the spin.
-- Done, suggest, approve, veto, delete, Undo, login, map, syncing and PWA-free hosting are unchanged.
+## How the new features work
 
-## Testing checklist
+- Both avatars appear at the top. The other person's avatar is first, yours second. Emoji status overlaps the avatar at bottom-right. On narrow phones, the names disappear but the avatars remain; each button has an accessible label.
+- Your account controls your own avatar, colour and status only. The status remains until changed or cleared.
+- Eight quick status emojis in this order: 🦤 ❤️ 🥰 🥺 😂 😴 😈 😡. A custom emoji field is available for avatar and status. Avatar presets and eight palette colours are included.
+- The UI always displays the name **Noémie**; **Captain** is only her login alias, as before.
+- Send a kiss saves a small notification to Firestore. Only the recipient can see and dismiss it. Tapping a received kiss deletes the notification and removes it from the count. The sender gets a “Kiss sent” confirmation, but no read receipt or online-status information.
+- No photos, Firebase Storage, push notifications, message histories or new paid services are added.
 
-- Joe signs in and sees checklist. Captain signs in separately.
-- Existing ideas appear, with old allocations above 0 treated as hearts.
-- Toggle Joe's heart, then confirm that Captain sees it. Toggle Captain's separately.
-- Verify date column and ranking update.
-- Run the picker and confirm it displays an approved idea.
-- Confirm a new suggestion still requires the other account's approval.
+## Security and limitations
 
-Note: This is a frontend update built from the last supplied Our Space files and the latest small-edits release, not a live integration test. In particular, the live site's manually edited wording may differ slightly.
+- The new Firestore rules only allow the two existing account UIDs. Each account may edit only its own profile. Kisses can only be sent to the other account, read by the recipient and dismissed by that recipient.
+- The existing `places` and `placesTo` rules remain unchanged. **Do not use open Firestore rules** (`allow read, write: if true`).
+- The new features will give a permissions error if the new Firestore rules have not been published.
+- Kisses are in-app only: the other person sees them next time the app is opened and online. No Android or WhatsApp push alert is sent.
+- This is an online-first feature. A successful Firestore write is required before confirming the save.
+- For now the custom emoji text fields accept short text; please enter an emoji rather than a word.
+- JavaScript syntax and element references were checked. A live connection to your private Firebase project was not available for testing; please check both accounts after deploying.

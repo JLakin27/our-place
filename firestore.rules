@@ -133,6 +133,34 @@ service cloud.firestore {
         );
       allow delete: if false;
     }
+    // Per-person optional emoji/colour profile. Only its owner may write it.
+    function validProfile(d) {
+      return d.keys().hasOnly(['avatarEmoji','statusEmoji','colour','updatedAt'])
+        && d.keys().hasAll(['avatarEmoji','statusEmoji','colour','updatedAt'])
+        && d.avatarEmoji is string && d.avatarEmoji.size() > 0 && d.avatarEmoji.size() <= 32
+        && d.statusEmoji is string && d.statusEmoji.size() <= 32
+        && d.colour in ['#f7d76b','#e9a88e','#b9dccb','#cdb9e8','#bfd6f1','#f1c7d2','#d1d2ce','#f1ca9e']
+        && d.updatedAt == request.time;
+    }
+    match /profiles/{uid} {
+      allow read: if invited();
+      allow create, update: if invited() && request.auth.uid == uid && validProfile(request.resource.data);
+      allow delete: if false;
+    }
+    // Kiss notifications are visible only to the recipient, and can only be
+    // dismissed by the recipient. No public collection access.
+    match /kisses/{kissId} {
+      allow get, list: if invited() && resource.data.toUid == request.auth.uid;
+      allow create: if invited()
+        && request.resource.data.keys().hasOnly(['fromUid','toUid','createdAt'])
+        && request.resource.data.keys().hasAll(['fromUid','toUid','createdAt'])
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.toUid in ['ahZtOZv0wnboG5LFKU0Nx8BpJpq2','ed9Ufp9pNRRY5qsFMneztfsxoff1']
+        && request.resource.data.toUid != request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow delete: if invited() && resource.data.toUid == request.auth.uid;
+      allow update: if false;
+    }
     match /{document=**} { allow read, write: if false; }
   }
 }

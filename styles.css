@@ -62,3 +62,25 @@
 @media(max-width:760px){.dodo-picker{padding:16px;gap:8px}.dodo-picker-copy h2{font-size:19px}.dodo-picker-copy p{font-size:12px}.dodo-visual{min-width:106px;max-width:115px}.dodo-wheel{width:92px;height:92px}.dodo-wheel span{font-size:24px;width:48px;height:48px}.dodo-cycling{font-size:10px;max-width:115px}.places-priority-table .submitted-date{font-size:10px}.vote-btn{padding:5px 8px;min-width:30px;font-size:17px}}
 @media(max-width:430px){.dodo-picker{align-items:flex-start}.dodo-visual{min-width:90px}.dodo-wheel{width:80px;height:80px}.dodo-wheel span{width:43px;height:43px;font-size:22px}.dodo-picker .primary{white-space:normal}}
 @media(prefers-reduced-motion:reduce){.dodo-wheel{transition:none!important}}
+
+/* Two-person profiles: compact header avatars, floating vibe badges */
+.header-profiles{display:flex;gap:8px;align-items:center}
+.profile-chip{display:flex;align-items:center;gap:6px;border:1px solid #eee8e1;background:#fff;border-radius:22px;padding:4px 9px 4px 5px;color:#5a524c;cursor:pointer;font-size:11px;font-weight:800}
+.profile-chip[hidden]{display:none!important}
+.profile-chip-avatar{position:relative;display:grid;place-items:center;width:33px;height:33px;flex:none;background:var(--avatar-colour,#f7d76b);border-radius:50%;font-size:21px}
+.profile-chip-status{position:absolute;right:-7px;bottom:-5px;display:grid;place-items:center;min-width:19px;height:19px;background:#fff;border:1px solid #eaded1;box-shadow:0 1px 3px #0001;border-radius:50%;font-size:13px;line-height:1}
+.profile-chip-status[hidden]{display:none!important}
+.profile-chip-name{white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis}
+.profile-modal .full{width:100%;margin-top:15px}.profile-hero{display:flex;align-items:center;gap:15px;margin:19px 0}.profile-hero p{margin:5px 0 0}
+.profile-large-avatar{height:74px;width:74px;border-radius:50%;background:#b9dccb;display:grid;place-items:center;font-size:38px;flex:none}
+.profile-emoji-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.profile-emoji-option{padding:10px 4px;border-radius:11px;border:1px solid #e9e3dc;background:#fbfaf8;font-size:24px;min-height:51px}
+.profile-emoji-option[aria-pressed=true]{border:2px solid #da8c67;background:#fff0e7}
+.profile-colours{display:flex;gap:8px;flex-wrap:wrap;margin:9px 0}
+.profile-colour-option{height:34px;width:34px;display:grid;place-items:center;border:1px solid #d4cbc0;border-radius:50%;font-size:18px}
+.profile-colour-option[aria-pressed=true]{outline:2px solid #9e6f54;outline-offset:2px}
+.profile-clear{margin-top:9px}.profile-error{color:#b44242!important;min-height:14px}.profile-help{margin-bottom:0!important}
+.kiss-button{margin-top:15px}.kiss-notification{background:#fff2eb;border-color:#eac4ae}
+@media(max-width:860px){.profile-chip-name{display:none}.profile-chip{padding:4px}.top-right{gap:9px!important}}
+@media(max-width:760px){.topbar .online{max-width:96px;min-width:0}.topbar .online span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.profile-chip-avatar{width:30px;height:30px;font-size:19px}.header-profiles{gap:5px}.topbar{padding-left:12px;padding-right:12px}.topbar .eyebrow{max-width:66px;overflow:hidden;white-space:nowrap}.profile-chip-status{font-size:11px;min-width:17px;height:17px}}
+@media(max-width:375px){.topbar .eyebrow{display:none}.topbar .notifications{padding:6px 7px}.topbar .online{font-size:10px}}
