@@ -291,7 +291,9 @@ async function markPlaceDone(p){if(!confirm(`Tick off “${p.name}”? It’ll m
   const ok=await placesToWrite(async()=>{if(isDemo){Object.assign(p,{status:'done',joeStars:0,noemieStars:0});saveDemoPlacesTo();}else await firestore.updateDoc(firestore.doc(db,'placesTo',p.id),{status:'done',joeStars:0,noemieStars:0});});if(ok)setPlacesTab('done');
 }
 // Dodo wheel is purely visual: every approved, unfinished idea has equal odds.
-let dodoSpinning=false,dodoRotation=0,dodoInterval=null,dodoTimeout=null;
+// The label is derived from the wheel's *rendered rotation*, so it slows down
+// alongside the wheel instead of cycling independently at a fixed speed.
+let dodoSpinning=false,dodoRotation=0,dodoFrame=null,dodoTimeout=null;
 function closeDodoResult(){$('dodo-result-modal').hidden=true;}
 function chooseDodo(){
   if(dodoSpinning)return;
@@ -302,22 +304,41 @@ function chooseDodo(){
   const wheel=$('dodo-wheel'),cycling=$('dodo-cycling'),n=options.length;
   const palette=['#e9b699','#e4dbc3','#b9d3c4','#d8c4db','#f2d9bc','#c7dce7'];
   wheel.style.background=`conic-gradient(${options.map((_,i)=>`${palette[i%palette.length]} ${i*100/n}% ${(i+1)*100/n}%`).join(',')})`;
-  // Uniform selection: ranking and votes do not change the odds.
   const selection=Math.floor(Math.random()*n),chosen=options[selection];
-  let index=0;cycling.textContent=options[0].name;
   const motionAllowed=!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if(dodoInterval)clearInterval(dodoInterval);
-  if(dodoTimeout)clearTimeout(dodoTimeout);
+  if(dodoFrame!==null){cancelAnimationFrame(dodoFrame);dodoFrame=null;}
+  if(dodoTimeout!==null){clearTimeout(dodoTimeout);dodoTimeout=null;}
+  // A conic-gradient begins at 12 o'clock and runs clockwise. Read the
+  // browser's current transform to determine which slice is under the pointer.
+  const showCurrentSlice=()=>{
+    const transform=getComputedStyle(wheel).transform;
+    if(transform==='none')return;
+    const matrix=new DOMMatrixReadOnly(transform);
+    const angle=(Math.atan2(matrix.b,matrix.a)*180/Math.PI+360)%360;
+    const pointerAngle=(360-angle)%360;
+    const index=Math.min(n-1,Math.floor(pointerAngle/(360/n)));
+    cycling.textContent=options[index].name;
+  };
+  cycling.textContent=options[0].name;
   if(motionAllowed){
-    dodoInterval=setInterval(()=>{index=(index+1)%n;cycling.textContent=options[index].name;},115);
     const targetAngle=-(selection+.5)*360/n;
     const delta=targetAngle-(dodoRotation%360);
     dodoRotation+=2160+((delta%360)+360)%360;
     wheel.style.transition='transform 3.1s cubic-bezier(.13,.65,.12,1)';
+    // Make sure a previous spin's transform is committed before changing it.
+    void wheel.offsetWidth;
     wheel.style.transform=`rotate(${dodoRotation}deg)`;
-  }else{cycling.textContent=chosen.name;}
+    const trackWheel=()=>{showCurrentSlice();dodoFrame=requestAnimationFrame(trackWheel);};
+    dodoFrame=requestAnimationFrame(trackWheel);
+  }else{
+    wheel.style.transition='none';
+    dodoRotation=-(selection+.5)*360/n;
+    wheel.style.transform=`rotate(${dodoRotation}deg)`;
+    cycling.textContent=chosen.name;
+  }
   dodoTimeout=setTimeout(()=>{
-    clearInterval(dodoInterval);dodoInterval=null;
+    if(dodoFrame!==null){cancelAnimationFrame(dodoFrame);dodoFrame=null;}
+    dodoTimeout=null;
     cycling.textContent=chosen.name;
     dodoSpinning=false;btn.textContent='Let the dodo decide ↗';
     btn.disabled=!placesTo.some(p=>p.status==='approved');
