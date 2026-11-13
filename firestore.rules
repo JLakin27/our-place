@@ -79,15 +79,21 @@ service cloud.firestore {
     // Independent, private checklist. No map data is involved.
     function validChecklist(d) {
       return d.keys().hasAll(['name','notes','addedBy','status','reviewedBy','joeStars','noemieStars','createdAt'])
-        && d.keys().hasOnly(['name','notes','addedBy','status','reviewedBy','joeStars','noemieStars','createdAt'])
+        && d.keys().hasOnly(['name','notes','addedBy','status','reviewedBy','joeStars','noemieStars','createdAt','deletedBy','deletedFrom'])
         && d.name is string && d.name.size() > 0 && d.name.size() <= 100
         && d.notes is string && d.notes.size() <= 500
         && d.addedBy in ['Joe','Noémie']
-        && d.status in ['suggested','approved','vetoed','done']
+        && d.status in ['suggested','approved','vetoed','done','deleted']
         && d.reviewedBy in ['','Joe','Noémie']
         && d.createdAt is timestamp
         && d.joeStars is int && d.joeStars >= 0 && d.joeStars <= 10
-        && d.noemieStars is int && d.noemieStars >= 0 && d.noemieStars <= 10;
+        && d.noemieStars is int && d.noemieStars >= 0 && d.noemieStars <= 10
+        && (d.status == 'deleted'
+          ? (d.keys().hasAll(['deletedBy','deletedFrom'])
+            && d.deletedBy in ['Joe','Noémie']
+            && d.deletedFrom in ['suggested','approved','vetoed','done']
+            && d.joeStars == 0 && d.noemieStars == 0)
+          : !d.keys().hasAny(['deletedBy','deletedFrom']));
     }
     match /placesTo/{itemId} {
       allow read: if invited();
@@ -97,7 +103,7 @@ service cloud.firestore {
         && request.resource.data.reviewedBy == ''
         && request.resource.data.joeStars == 0 && request.resource.data.noemieStars == 0;
       allow update: if invited() && validChecklist(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','joeStars','noemieStars'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','joeStars','noemieStars','deletedBy','deletedFrom'])
         && (
           (resource.data.status == 'suggested'
            && resource.data.addedBy != who()
@@ -109,6 +115,17 @@ service cloud.firestore {
             && request.resource.data.reviewedBy == resource.data.reviewedBy
             && ((who() == 'Joe' && request.resource.data.noemieStars == resource.data.noemieStars)
                 || (who() == 'Noémie' && request.resource.data.joeStars == resource.data.joeStars)))
+          || (resource.data.status in ['suggested','approved','vetoed','done']
+              && request.resource.data.status == 'deleted'
+              && request.resource.data.deletedBy == who()
+              && request.resource.data.deletedFrom == resource.data.status
+              && request.resource.data.reviewedBy == resource.data.reviewedBy
+              && request.resource.data.joeStars == 0 && request.resource.data.noemieStars == 0)
+          || (resource.data.status == 'deleted'
+              && resource.data.deletedBy == who()
+              && request.resource.data.status == resource.data.deletedFrom
+              && request.resource.data.reviewedBy == resource.data.reviewedBy
+              && request.resource.data.joeStars == 0 && request.resource.data.noemieStars == 0)
           || (resource.data.status == 'approved'
               && request.resource.data.status == 'done'
               && request.resource.data.reviewedBy == resource.data.reviewedBy
