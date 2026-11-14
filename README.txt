@@ -1,14 +1,15 @@
-Our Space — Most Tempting table update
+OUR SPACE — MUSIC POLISH & OWNER-ONLY DELETION
 
-Replace ONLY index.html and app.js in the root of your current GitHub Pages repository.
-Leave styles.css and firestore.rules unchanged.
+CHANGES
+- Removed the music page footnote.
+- Increased heading letter spacing for On repeat right now and Our collection; slightly eased the main music title spacing too.
+- In the song player popup, the person who shared the song gets Delete my share. Confirming deletes that song from the shared collection. If it was their newest share, their next-newest remaining share automatically becomes current. Noémie cannot delete Joe’s songs and Joe cannot delete Noémie’s.
 
-Changes:
-- Our Places To table header: Wanted by -> Most tempting (no emoji in header).
-- Existing individual heart buttons stay unchanged visually.
-- Most tempting column shows 😈😈 for two top picks, 😈 for one, — for none.
-- Copy: Tap the heart on the ones you really want. Mutual favourites rise to the top.
-- Removed the intro line: Our list of places... ranked by how bad we want it.
-- Updated heart tooltips to describe top picks rather than desire/approval.
+INSTALL
+1. Back up current working website. Replace GitHub root index.html, app.js and styles.css with the supplied files.
+2. IMPORTANT: Publish the full contents of firestore.rules.txt at Firebase Console > Firestore Database > Rules. This is the complete rules file based on the exact rules you pasted in this conversation, plus the previous Music permissions and new owner-only delete. It retains map description edits, checklist, profiles and kisses.
+3. Copy the same published rules to your GitHub firestore.rules file for backup/version control.
+4. Verify as Joe: delete a song Joe shared; verify it disappears from both views and that Noémie’s songs have no Delete my share button. Verify the reverse on Noémie’s account.
 
-Sorting still prioritises ideas with more hearts, then newest. Existing Firebase votes and security rules are unchanged. No data migration.
+Deleting is permanent (confirmation prompt, no undo). No existing songs are changed during deployment.
+The JavaScript syntax and archive were checked locally. Live Firebase deployment has not been tested.

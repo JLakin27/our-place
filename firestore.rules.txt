@@ -1,0 +1,198 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function invited() {
+      return request.auth != null && request.auth.uid in [
+        'ahZtOZv0wnboG5LFKU0Nx8BpJpq2',
+        'ed9Ufp9pNRRY5qsFMneztfsxoff1'
+      ];
+    }
+    function who() {
+      return request.auth.uid == 'ahZtOZv0wnboG5LFKU0Nx8BpJpq2' ? 'Joe' : 'Noémie';
+    }
+    function validPlace(d) {
+      return d.keys().hasOnly(['name','category','notes','addedBy','lat','lng','createdAt','status','reviewedBy','visitedAt','memoryNotes','photoUrl'])
+        && d.keys().hasAll(['name','category','notes','addedBy','lat','lng','createdAt'])
+        && d.name is string && d.name.size()>0 && d.name.size()<=100
+        && d.notes is string && d.notes.size()<=2000
+        && d.category in ['Agreed Trip','Wishlist - Her','Wishlist - Him','Wishlist - Joe','Wishlist - Noémie','Visited']
+        && d.addedBy in ['Joe','Noémie']
+        && d.lat is number && d.lat>=-90 && d.lat<=90
+        && d.lng is number && d.lng>=-180 && d.lng<=180
+        && d.createdAt is timestamp
+        && (!d.keys().hasAny(['status']) || d.status in ['suggested','approved','visited','vetoed'])
+        && (!d.keys().hasAny(['reviewedBy']) || d.reviewedBy in ['', 'Joe','Noémie'])
+        && (!d.keys().hasAny(['visitedAt']) || d.visitedAt == null || d.visitedAt is timestamp)
+        && (!d.keys().hasAny(['memoryNotes']) || (d.memoryNotes is string && d.memoryNotes.size()<=2000))
+        && (!d.keys().hasAny(['photoUrl']) || (d.photoUrl is string && d.photoUrl.size()<=2000 && (d.photoUrl=='' || d.photoUrl.matches('https://.*'))));
+    }
+    function priorStatus() {
+      return resource.data.get('status', resource.data.category=='Agreed Trip'?'approved':'suggested');
+    }
+    function futureStatus() {
+      return request.resource.data.get('status', request.resource.data.category=='Agreed Trip'?'approved':'suggested');
+    }
+    function isDecision() {
+      return priorStatus()=='suggested'
+        && futureStatus() in ['approved','vetoed']
+        && resource.data.addedBy != who()
+        && request.resource.data.reviewedBy == who()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','category','reviewedBy'])
+        && (futureStatus()!='approved' || request.resource.data.category=='Agreed Trip');
+    }
+    function isVisit() {
+      return priorStatus() in ['approved','visited']
+        && futureStatus()=='visited'
+        && request.resource.data.category=='Visited'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','category','visitedAt','memoryNotes','photoUrl'])
+        && request.resource.data.visitedAt is timestamp;
+    }
+    match /places/{placeId} {
+      allow read: if invited();
+      // Starter data created once, using an atomic transaction with meta/starter-seed.
+      allow create: if invited() && validPlace(request.resource.data) && (
+        (request.resource.data.status=='suggested'
+          && request.resource.data.addedBy==who()
+          && request.resource.data.category==('Wishlist - '+who())
+          && request.resource.data.reviewedBy=='')
+        || (placeId in ['starter-la-rochelle','starter-norway']
+          && request.resource.data.status=='approved'
+          && request.resource.data.category=='Agreed Trip')
+      );
+      allow update: if invited() && validPlace(request.resource.data)
+        && request.resource.data.name == resource.data.name
+        && request.resource.data.addedBy == resource.data.addedBy
+        && request.resource.data.lat == resource.data.lat
+        && request.resource.data.lng == resource.data.lng
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notes'])
+          || (request.resource.data.notes == resource.data.notes
+              && (isDecision() || isVisit()))
+        );
+    }
+    match /meta/starter-seed {
+      allow read: if invited();
+      allow create: if invited()
+        && request.resource.data.keys().hasOnly(['seededAt'])
+        && request.resource.data.seededAt is timestamp;
+      allow update, delete: if false;
+    }
+    // Independent, private checklist. No map data is involved.
+    function validChecklist(d) {
+      return d.keys().hasAll(['name','notes','addedBy','status','reviewedBy','joeStars','noemieStars','createdAt'])
+        && d.keys().hasOnly(['name','notes','addedBy','status','reviewedBy','joeStars','noemieStars','createdAt','deletedBy','deletedFrom'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 100
+        && d.notes is string && d.notes.size() <= 500
+        && d.addedBy in ['Joe','Noémie']
+        && d.status in ['suggested','approved','vetoed','done','deleted']
+        && d.reviewedBy in ['','Joe','Noémie']
+        && d.createdAt is timestamp
+        && d.joeStars is int && d.joeStars >= 0 && d.joeStars <= 10
+        && d.noemieStars is int && d.noemieStars >= 0 && d.noemieStars <= 10
+        && (d.status == 'deleted'
+          ? (d.keys().hasAll(['deletedBy','deletedFrom'])
+            && d.deletedBy in ['Joe','Noémie']
+            && d.deletedFrom in ['suggested','approved','vetoed','done']
+            && d.joeStars == 0 && d.noemieStars == 0)
+          : !d.keys().hasAny(['deletedBy','deletedFrom']));
+    }
+    match /placesTo/{itemId} {
+      allow read: if invited();
+      allow create: if invited() && validChecklist(request.resource.data)
+        && request.resource.data.addedBy == who()
+        && request.resource.data.status == 'suggested'
+        && request.resource.data.reviewedBy == ''
+        && request.resource.data.joeStars == 0 && request.resource.data.noemieStars == 0;
+      allow update: if invited() && validChecklist(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','joeStars','noemieStars','deletedBy','deletedFrom'])
+        && (
+          (resource.data.status == 'suggested'
+           && resource.data.addedBy != who()
+           && request.resource.data.status in ['approved','vetoed']
+           && request.resource.data.reviewedBy == who()
+           && request.resource.data.joeStars == 0 && request.resource.data.noemieStars == 0)
+          || (resource.data.status == 'approved'
+            && request.resource.data.status == 'approved'
+            && request.resource.data.reviewedBy == resource.data.reviewedBy
+            && ((who() == 'Joe' && request.resource.data.noemieStars == resource.data.noemieStars)
+                || (who() == 'Noémie' && request.resource.data.joeStars == resource.data.joeStars)))
+          || (resource.data.status in ['suggested','approved','vetoed','done']
+              && request.resource.data.status == 'deleted'
+              && request.resource.data.deletedBy == who()
+              && request.resource.data.deletedFrom == resource.data.status
+              && request.resource.data.reviewedBy == resource.data.reviewedBy
+              && request.resource.data.joeStars == 0 && request.resource.data.noemieStars == 0)
+          || (resource.data.status == 'deleted'
+              && resource.data.deletedBy == who()
+              && request.resource.data.status == resource.data.deletedFrom
+              && request.resource.data.reviewedBy == resource.data.reviewedBy
+              && request.resource.data.joeStars == 0 && request.resource.data.noemieStars == 0)
+          || (resource.data.status == 'approved'
+              && request.resource.data.status == 'done'
+              && request.resource.data.reviewedBy == resource.data.reviewedBy
+              && request.resource.data.joeStars == 0 && request.resource.data.noemieStars == 0)
+        );
+      allow delete: if false;
+    }
+    // Per-person optional emoji/colour profile. Only its owner may write it.
+    function validProfile(d) {
+      return d.keys().hasOnly(['avatarEmoji','statusEmoji','colour','updatedAt'])
+        && d.keys().hasAll(['avatarEmoji','statusEmoji','colour','updatedAt'])
+        && d.avatarEmoji is string && d.avatarEmoji.size() > 0 && d.avatarEmoji.size() <= 32
+        && d.statusEmoji is string && d.statusEmoji.size() <= 32
+        && d.colour in ['#f7d76b','#e9a88e','#b9dccb','#cdb9e8','#bfd6f1','#f1c7d2','#d1d2ce','#f1ca9e']
+        && d.updatedAt == request.time;
+    }
+    match /profiles/{uid} {
+      allow read: if invited();
+      allow create, update: if invited() && request.auth.uid == uid && validProfile(request.resource.data);
+      allow delete: if false;
+    }
+    // Kiss notifications are visible only to the recipient, and can only be
+    // dismissed by the recipient. No public collection access.
+    match /kisses/{kissId} {
+      allow get, list: if invited() && resource.data.toUid == request.auth.uid;
+      allow create: if invited()
+        && request.resource.data.keys().hasOnly(['fromUid','toUid','createdAt'])
+        && request.resource.data.keys().hasAll(['fromUid','toUid','createdAt'])
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.toUid in ['ahZtOZv0wnboG5LFKU0Nx8BpJpq2','ed9Ufp9pNRRY5qsFMneztfsxoff1']
+        && request.resource.data.toUid != request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow delete: if invited() && resource.data.toUid == request.auth.uid;
+      allow update: if false;
+    }
+    // Our Music: shared tracks, with each person only able to add their own.
+    match /musicTracks/{trackId} {
+      allow read: if invited();
+      allow create: if invited()
+        && request.resource.data.keys().hasAll([
+          'ownerUid', 'ownerName', 'spotifyUrl', 'spotifyId',
+          'title', 'thumbnailUrl', 'note', 'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'ownerUid', 'ownerName', 'spotifyUrl', 'spotifyId',
+          'title', 'thumbnailUrl', 'note', 'createdAt'
+        ])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerName == who()
+        && request.resource.data.spotifyId is string
+        && request.resource.data.spotifyId.matches('[A-Za-z0-9]{22}')
+        && request.resource.data.spotifyUrl ==
+          'https://open.spotify.com/track/' + request.resource.data.spotifyId
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.thumbnailUrl is string
+        && request.resource.data.thumbnailUrl.size() <= 500
+        && request.resource.data.note is string
+        && request.resource.data.note.size() <= 300
+        && request.resource.data.createdAt is timestamp;
+      // Each person can remove only tracks they originally shared.
+      allow delete: if invited() && resource.data.ownerUid == request.auth.uid;
+      allow update: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

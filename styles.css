@@ -144,3 +144,12 @@ body.trip-map-fullscreen{overflow:hidden}
 @media(max-width:600px){#music-view .music-space{padding:17px;border-radius:17px}.music-head-icon{width:46px;height:46px;font-size:24px}.music-track-top{gap:12px}.music-cover{width:108px}.music-tab{flex:1;padding:11px 9px;font-size:12px}.music-current-card{padding:15px}}
 
 #music-view [hidden],#music-preview[hidden]{display:none!important}
+
+/* Our Music — legible headings and owner-only track removal */
+#music-view .music-section-head h2{letter-spacing:.35px;line-height:1.35;font-weight:700}
+#music-view .music-header h1{letter-spacing:0;line-height:1.18}
+.music-player-actions{margin-top:18px;padding-top:12px;border-top:1px solid #e9e9e9}
+.music-delete-track{background:#fff4f2;border:1px solid #ebc7c2;border-radius:9px;padding:10px 13px;color:#9b433c;font-weight:700;cursor:pointer}
+.music-delete-track:hover{background:#ffe9e6}.music-delete-track:disabled{opacity:.55;cursor:wait}
+.music-delete-error{color:#a23c36!important;font-size:12px;min-height:0;margin:8px 0 0!important}
+.music-player-actions[hidden],.music-delete-track[hidden]{display:none!important}
