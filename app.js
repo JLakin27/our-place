@@ -191,7 +191,11 @@ function refreshHome(){
   const greeting=$('home-greeting');if(!greeting)return;
   greeting.textContent=currentUser==='Noémie'?'HEY, CAPTAIN 👀':'HEY, JOE 👋';
   const pendingTrips=incoming().length,pendingIdeas=placesToIncoming().length,pendingKissCount=pendingKisses().length,total=pendingTrips+pendingIdeas+pendingKissCount;
-  $('home-attention').textContent=total?`${pendingTrips} trip ${pendingTrips===1?'suggestion':'suggestions'} · ${pendingIdeas} list ${pendingIdeas===1?'idea':'ideas'} · ${pendingKissCount} ${pendingKissCount===1?'kiss':'kisses'} waiting for you`:'All caught up — nothing new right now.';
+  const inboxSummary=[];
+  if(pendingTrips>0)inboxSummary.push(`${pendingTrips} trip ${pendingTrips===1?'suggestion':'suggestions'}`);
+  if(pendingIdeas>0)inboxSummary.push(`${pendingIdeas} list ${pendingIdeas===1?'idea':'ideas'}`);
+  if(pendingKissCount>0)inboxSummary.push(`${pendingKissCount} ${pendingKissCount===1?'kiss':'kisses'} waiting for you`);
+  $('home-attention').textContent=inboxSummary.length?inboxSummary.join(' · '):'All caught up — nothing new right now.';
   // Firebase listeners already refresh the map and checklist arrays; counts remain live even while collapsed.
   $('kpi-to-visit').textContent=pins.filter(p=>stateOf(p)==='approved').length;
   $('kpi-visited').textContent=pins.filter(p=>stateOf(p)==='visited').length;
