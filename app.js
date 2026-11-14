@@ -402,7 +402,7 @@ function renderPlacesTo(){
     const wrap=document.createElement('div');wrap.className='places-table-wrap';
     const table=document.createElement('table');table.className='places-priority-table';
     const thead=document.createElement('thead');const hr=document.createElement('tr');
-    const labels=placesToTab==='approved'?['#','Place','Submitted','Joe','Noémie','Wanted by','']:
+    const labels=placesToTab==='approved'?['#','Place','Submitted','Joe','Noémie','Most tempting','']:
       placesToTab==='suggested'?['Place','Submitted','Suggested by','Decision']:['Place','Submitted','Status'];
     labels.forEach((label,i)=>{const th=document.createElement('th');th.textContent=label;if(placesToTab==='approved'&&i===0)th.className='rank-col';hr.append(th);});
     thead.append(hr);table.append(thead);
@@ -418,11 +418,11 @@ function renderPlacesTo(){
         for(const [key,person] of [['joeStars','Joe'],['noemieStars','Noémie']]){
           if(person===currentUser){
             const chosen=hasVote(p,key);const vote=makePlaceButton(chosen?'♥':'♡',()=>togglePlaceVote(p),`vote-btn ${chosen?'voted':''}`,!placesReady());
-            vote.title=chosen?'Remove your upvote':'I really want this';vote.setAttribute('aria-label',vote.title);vote.setAttribute('aria-pressed',String(chosen));
+            vote.title=chosen?'Remove from my top picks':'One of my top picks';vote.setAttribute('aria-label',vote.title);vote.setAttribute('aria-pressed',String(chosen));
             cell(tr,vote,'vote-cell');
-          }else{const label=document.createElement('span');label.className=hasVote(p,key)?'other-vote yes':'other-vote';label.textContent=hasVote(p,key)?'♥':'♡';label.title=hasVote(p,key)?person+' wants this':person+' has not upvoted';cell(tr,label,'vote-cell');}
+          }else{const label=document.createElement('span');label.className=hasVote(p,key)?'other-vote yes':'other-vote';label.textContent=hasVote(p,key)?'♥':'♡';label.title=hasVote(p,key)?person+' marked this as a top pick':person+' has not marked this as a top pick';cell(tr,label,'vote-cell');}
         }
-        cell(tr,`${voteCount(p)} / 2`,'score-cell');
+        cell(tr,'😈'.repeat(voteCount(p)) || '—','score-cell');
         const actions=document.createElement('div');actions.className='compact-row-actions';
         actions.append(makePlaceButton('✓ Done',()=>markPlaceDone(p),'mini-done-btn',!placesReady()));
         actions.append(makePlaceButton('🗑️',()=>removePlace(p),'mini-delete-btn',!placesReady()));

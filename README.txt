@@ -1,17 +1,14 @@
-Our Space — friendlier shared-list wording
+Our Space — Most Tempting table update
 
-Replace ONLY these two files in the ROOT of your existing GitHub Pages repository:
-- index.html
-- app.js
+Replace ONLY index.html and app.js in the root of your current GitHub Pages repository.
+Leave styles.css and firestore.rules unchanged.
 
-KEEP styles.css and firestore.rules unchanged.
+Changes:
+- Our Places To table header: Wanted by -> Most tempting (no emoji in header).
+- Existing individual heart buttons stay unchanged visually.
+- Most tempting column shows 😈😈 for two top picks, 😈 for one, — for none.
+- Copy: Tap the heart on the ones you really want. Mutual favourites rise to the top.
+- Removed the intro line: Our list of places... ranked by how bad we want it.
+- Updated heart tooltips to describe top picks rather than desire/approval.
 
-Changes: 
-- Maps: “Approved” becomes “Both up for it”; “Approve” becomes “I’m up for it ✓”; “Vetoed/Veto” becomes “Not for me”; pending text becomes “Waiting for a response”.
-- Our Places To: “Approved” tab becomes “On our list”, positive action “I’m up for it ✓”, negative action “Not for me”, and Dodo copy updated.
-- Home KPI sub-labels updated; headline KPI labels remain unchanged.
-- Notifications, WhatsApp share prompt, and helper copy use less formal language.
-
-IMPORTANT: Database status values such as approved, suggested, visited, vetoed are intentionally UNCHANGED. The change is only to the language displayed to people. Your existing records and Firestore security rules remain compatible.
-
-After uploading, hard refresh both devices. Check a suggested map place, a Places To suggestion, map filters, and the homepage At a glance panel. No Firebase changes required.
+Sorting still prioritises ideas with more hearts, then newest. Existing Firebase votes and security rules are unchanged. No data migration.
