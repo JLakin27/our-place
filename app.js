@@ -151,6 +151,7 @@ function refreshHome(){
   $('kpi-visited').textContent=pins.filter(p=>stateOf(p)==='visited').length;
   $('kpi-our-list').textContent=placesTo.filter(p=>p.status==='approved').length;
   $('kpi-ticked').textContent=placesTo.filter(p=>p.status==='done').length;
+  $('kpi-music-tracks').textContent=musicTracks.length;
 }
 function bindHomeKpis(){
   const toggle=$('home-kpis-toggle'),content=$('home-kpis-content'),label=$('home-kpis-toggle-label');
@@ -392,6 +393,8 @@ function musicCard(track,owner){
 }
 function renderMusic(){
   const current=$('music-current-grid');if(!current)return;
+  // Keep the homepage total synced to live music snapshots and owner-only deletions.
+  const homeTrackCount=$('kpi-music-tracks');if(homeTrackCount)homeTrackCount.textContent=musicTracks.length;
   const sorted=musicSorted(), joe=sorted.find(t=>t.ownerName==='Joe'),noemie=sorted.find(t=>t.ownerName==='Noémie');
   current.innerHTML=musicCard(noemie,'Noémie')+musicCard(joe,'Joe');
   $('music-current-count').textContent=`${Number(Boolean(joe))+Number(Boolean(noemie))} current ${joe&&noemie?'tracks':(joe||noemie)?'track':'tracks'}`;

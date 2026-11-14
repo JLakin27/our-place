@@ -97,13 +97,19 @@
 .home-kpis-toggle-action{display:flex;gap:13px;align-items:center;color:#987764;font-size:12px;font-weight:800}
 .home-kpis-chevron{font-size:23px;line-height:1;transition:transform .2s}
 .home-kpis-toggle[aria-expanded="true"] .home-kpis-chevron{transform:rotate(180deg)}
-.home-kpis-content{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:13px;animation:home-kpis-in .18s ease-out}
+.home-kpis-content{display:flex;flex-direction:column;gap:19px;margin-top:13px;animation:home-kpis-in .18s ease-out}
 .home-kpis-content[hidden]{display:none!important}
+.home-kpi-group{min-width:0}
+.home-kpi-group+.home-kpi-group{border-top:1px solid #eae5df;padding-top:16px}
+.home-kpi-group-title{display:flex;gap:9px;align-items:center;margin:0 0 11px;font:700 15px Outfit,sans-serif;letter-spacing:0;color:#363832}
+.home-kpi-group-title span{font-size:19px;line-height:1.2}
+.home-kpi-group-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.home-kpi-group-grid-single{grid-template-columns:minmax(0,1fr)}
 .home-kpi-card{display:flex;flex-direction:column;align-items:flex-start;gap:5px;border:1px solid #ece5df;border-radius:15px;padding:17px;background:#fff;color:#393a35;text-align:left;min-width:0;cursor:pointer;transition:box-shadow .2s,transform .2s}
 .home-kpi-card:hover{transform:translateY(-2px);box-shadow:0 7px 20px #33292210}
-.home-kpi-icon{font-size:22px;line-height:1.4}.home-kpi-card strong{font:700 30px Outfit,sans-serif;font-variant-numeric:tabular-nums;margin:3px 0 1px}.home-kpi-card>span:not(.home-kpi-icon){font-size:12px;font-weight:800}.home-kpi-card small{font-size:10px;color:#978f88}
+.home-kpi-card strong{font:700 30px Outfit,sans-serif;font-variant-numeric:tabular-nums;margin:3px 0 1px}.home-kpi-card>span{font-size:12px;font-weight:800}.home-kpi-card small{font-size:10px;color:#978f88}
 @keyframes home-kpis-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
-@media(max-width:850px){.home-kpis-content{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 @media(max-width:760px){.home-kpis-toggle{padding:12px}.home-kpi-card{padding:14px}.home-kpi-card strong{font-size:27px}}
 @media(prefers-reduced-motion:reduce){.home-kpis-content{animation:none}.home-kpis-chevron,.home-kpi-card{transition:none}}
 

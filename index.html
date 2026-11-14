@@ -42,10 +42,26 @@
             <span class="home-kpis-toggle-action"><span id="home-kpis-toggle-label">Show</span><span class="home-kpis-chevron" aria-hidden="true">⌄</span></span>
           </button>
           <div class="home-kpis-content" id="home-kpis-content" hidden>
-            <button class="home-kpi-card" type="button" data-go="map" aria-label="Open places we both want to visit in Our Next Stop"><span class="home-kpi-icon">🌍</span><strong id="kpi-to-visit">0</strong><span>Places to visit</span><small>Both up for it</small></button>
-            <button class="home-kpi-card" type="button" data-go="map" aria-label="Open places we've been in Our Next Stop"><span class="home-kpi-icon">📍</span><strong id="kpi-visited">0</strong><span>Places we've been</span><small>Completed adventures</small></button>
-            <button class="home-kpi-card" type="button" data-go="places" aria-label="Open ideas on our shared list in Our Places To"><span class="home-kpi-icon">😈</span><strong id="kpi-our-list">0</strong><span>On our list</span><small>Both up for it</small></button>
-            <button class="home-kpi-card" type="button" data-go="places" aria-label="Open completed ideas in Our Places To"><span class="home-kpi-icon">✓</span><strong id="kpi-ticked">0</strong><span>Ticked off</span><small>Ideas completed</small></button>
+            <section class="home-kpi-group" aria-label="Our Next Stop numbers">
+              <h3 class="home-kpi-group-title"><span aria-hidden="true">🌍</span> Our Next Stop</h3>
+              <div class="home-kpi-group-grid">
+                <button class="home-kpi-card" type="button" data-go="map" aria-label="Open places we both want to visit in Our Next Stop"><strong id="kpi-to-visit">0</strong><span>Places to visit</span><small>Both up for it</small></button>
+                <button class="home-kpi-card" type="button" data-go="map" aria-label="Open places we've been in Our Next Stop"><strong id="kpi-visited">0</strong><span>Places we've been</span><small>Visited</small></button>
+              </div>
+            </section>
+            <section class="home-kpi-group" aria-label="Our Places To numbers">
+              <h3 class="home-kpi-group-title"><span aria-hidden="true">😈</span> Our Places To</h3>
+              <div class="home-kpi-group-grid">
+                <button class="home-kpi-card" type="button" data-go="places" aria-label="Open ideas on our shared list in Our Places To"><strong id="kpi-our-list">0</strong><span>On our list</span><small>Both up for it</small></button>
+                <button class="home-kpi-card" type="button" data-go="places" aria-label="Open completed ideas in Our Places To"><strong id="kpi-ticked">0</strong><span>Ticked off</span><small>Ideas completed</small></button>
+              </div>
+            </section>
+            <section class="home-kpi-group" aria-label="Our Music numbers">
+              <h3 class="home-kpi-group-title"><span aria-hidden="true">🎧</span> Our Music</h3>
+              <div class="home-kpi-group-grid home-kpi-group-grid-single">
+                <button class="home-kpi-card" type="button" data-go="music" aria-label="Open our shared tracks in Our Music"><strong id="kpi-music-tracks">0</strong><span>Tracks shared</span><small>Our growing music collection</small></button>
+              </div>
+            </section>
           </div>
         </section>
       </section>
