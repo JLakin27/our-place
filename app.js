@@ -47,6 +47,8 @@ function showProfileStatus(){
     $(kind+'-profile-name').textContent=name;
     $(kind+'-profile-button').setAttribute('aria-label',kind==='own'?'Edit your profile':`View ${name}'s profile`);
   }
+  // Music's current-jam labels use these same live profiles.
+  renderMusic();
 }
 function populateEmojiChoices(container,values,key){
   const root=$(container);root.replaceChildren();
@@ -384,8 +386,9 @@ function musicSorted(){return [...musicTracks].sort((a,b)=>musicTime(b)-musicTim
 function musicCover(track){const url=track.thumbnailUrl||'';try{const parsed=new URL(url);if(parsed.protocol==='https:'&&(parsed.hostname==='i.scdn.co'||parsed.hostname==='image-cdn-ak.spotifycdn.com'))return `<img src="${escapeHtml(url)}" alt="Album artwork" loading="lazy">`;}catch{}return '<span aria-hidden="true">🎵</span>';}
 function musicCard(track,owner){
   const label=owner==='Noémie'?"Noémie's current jam":"Joe's current jam";
-  if(!track)return `<article class="music-current-card empty-music"><div class="music-owner">${escapeHtml(label)}</div><div class="music-empty-art">♫</div><h3>Nothing shared yet</h3><p>There's a space here for ${escapeHtml(owner)}'s next favourite.</p></article>`;
-  return `<article class="music-current-card"><div class="music-owner">${owner==='Noémie'?'🟡':'🦊'} ${escapeHtml(label)}</div><div class="music-track-top"><div class="music-cover">${musicCover(track)}</div><div class="music-track-copy"><h3>${escapeHtml(track.title)}</h3><small>Shared ${escapeHtml(musicDate(track.createdAt))}</small></div></div>${track.note?`<p class="music-note">“${escapeHtml(track.note)}”</p>`:''}<button class="music-listen" data-music-play="${escapeHtml(track.id)}" type="button">▶ Listen on Spotify</button></article>`;
+  const avatar=escapeHtml(currentProfile(owner).avatarEmoji);
+  if(!track)return `<article class="music-current-card empty-music"><div class="music-owner">${avatar} ${escapeHtml(label)}</div><div class="music-empty-art">♫</div><h3>Nothing shared yet</h3><p>There's a space here for ${escapeHtml(owner)}'s next favourite.</p></article>`;
+  return `<article class="music-current-card"><div class="music-owner">${avatar} ${escapeHtml(label)}</div><div class="music-track-top"><div class="music-cover">${musicCover(track)}</div><div class="music-track-copy"><h3>${escapeHtml(track.title)}</h3><small>Shared ${escapeHtml(musicDate(track.createdAt))}</small></div></div>${track.note?`<p class="music-note">“${escapeHtml(track.note)}”</p>`:''}<button class="music-listen" data-music-play="${escapeHtml(track.id)}" type="button">▶ Listen on Spotify</button></article>`;
 }
 function renderMusic(){
   const current=$('music-current-grid');if(!current)return;
