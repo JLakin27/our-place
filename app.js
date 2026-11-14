@@ -22,7 +22,7 @@ let map, db, auth, firestore, authApi, unsubscribe, pins=[], currentPage='home',
 const escapeHtml = text => String(text ?? '').replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const stateOf = p => p.status || (p.category==='Agreed Trip'?'approved':p.category==='Visited'?'visited':'suggested');
 const nameFor = p => ({'Wishlist - Her':'Noémie','Wishlist - Him':'Joe'}[p.category] || p.addedBy);
-const showState = p => ({suggested:'Suggested',approved:'Approved',visited:'Visited',vetoed:'Vetoed'}[stateOf(p)]||'Suggested');
+const showState = p => ({suggested:'Suggested',approved:'Both up for it',visited:'Visited',vetoed:'Not for me'}[stateOf(p)]||'Suggested');
 const markerStyle = p => ({suggested:'hers',approved:'together',visited:'done',vetoed:'vetoed'}[stateOf(p)]||'hers');
 const otherUser = name => name==='Joe'?'Noémie':'Joe';
 const incoming = () => pins.filter(p=>stateOf(p)==='suggested' && nameFor(p)!==currentUser);
@@ -239,7 +239,7 @@ function renderTripList(){
   const all=tripSortItems(pins.filter(tripFilterMatches));
   const items=tripListExpanded?all:tripSortItems(pins.filter(p=>stateOf(p)!=='vetoed')).slice(0,3);
   const container=$('trip-list-items');container.replaceChildren();
-  $('trip-list-caption').textContent=tripListExpanded?`${all.length} ${all.length===1?'place':'places'} · ${filter==='All'?'All except vetoed':filter==='Visited'?'Done':filter}`:'The three newest places';
+  $('trip-list-caption').textContent=tripListExpanded?`${all.length} ${all.length===1?'place':'places'} · ${filter==='All'?'Showing shared and suggested places':filter==='Visited'?'Done':filter}`:'The three newest places';
   $('trip-list-expanded').hidden=!tripListExpanded;
   $('trip-list-toggle').setAttribute('aria-expanded',String(tripListExpanded));
   $('trip-list-toggle-label').textContent=tripListExpanded?'Show less':'View all';
@@ -278,14 +278,14 @@ function render(){const suggestions=pins.filter(p=>stateOf(p)==='suggested'),app
 }
 function openDetails(id){const p=pins.find(x=>x.id===id);if(!p)return;selectedId=id;$('detail-title').textContent=p.name;$('detail-state').textContent=showState(p);$('detail-meta').textContent=`Suggested by ${nameFor(p)} · ${showState(p)}`;$('detail-notes').textContent=p.notes||'No note yet.';$('detail-memory-wrap').hidden=!p.memoryNotes;$('detail-memory').textContent=p.memoryNotes||'';let url='';try{const u=new URL(p.photoUrl||'');if(u.protocol==='https:')url=u.href;}catch{}$('detail-photo-wrap').hidden=!url;if(url)$('detail-photo').src=url;else $('detail-photo').removeAttribute('src');$('visit-fields').hidden=true;$('memory-notes').value=p.memoryNotes||'';$('photo-url').value=p.photoUrl||'';
   const actions=$('detail-actions');actions.replaceChildren();const button=(label,cb,cls='secondary',isWrite=false)=>{const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=label;b.onclick=cb;if(isWrite){b.dataset.writeAction='true';b.disabled=!canWrite();}actions.append(b);};const state=stateOf(p);
-  if(state==='suggested'&&nameFor(p)!==currentUser){button('Approve ✓',event=>changeStatus(p,'approved',event.currentTarget),'primary',true);button('Veto 👀',event=>changeStatus(p,'vetoed',event.currentTarget),'secondary',true);}
-  if(state==='suggested'&&nameFor(p)===currentUser)button('Awaiting '+otherUser(currentUser)+'’s decision',()=>notify('Only the other person can approve or veto.'),'secondary');
+  if(state==='suggested'&&nameFor(p)!==currentUser){button('I’m up for it ✓',event=>changeStatus(p,'approved',event.currentTarget),'primary',true);button('Not for me',event=>changeStatus(p,'vetoed',event.currentTarget),'secondary',true);}
+  if(state==='suggested'&&nameFor(p)===currentUser)button('Waiting for '+otherUser(currentUser)+'’s response',()=>notify('Only the other person can respond to this suggestion.'),'secondary');
   if(state==='approved')button('We went here ✓',()=>{$('visit-fields').hidden=false;});
   if(state==='visited')button('Edit memories',()=>{$('visit-fields').hidden=false;$('confirm-visited').textContent='Save memories ✓';});
-  if(state==='vetoed')button('Vetoed',()=>notify('This suggestion was vetoed.'));
+  if(state==='vetoed')button('Not for me',()=>notify('This suggestion wasn’t for them.'));
   button('Share on WhatsApp ↗',()=>sharePlace(p));button('Delete',()=>deletePlace(p),'danger',true);$('detail-modal').hidden=false;updateConnectionUI();}
 function closeDetails(){if(writeInProgress)return;$('detail-modal').hidden=true;selectedId=null;$('confirm-visited').textContent='Mark as visited ✓';}
-async function sharePlace(p){const url=new URL(location.href);url.hash='place-'+encodeURIComponent(p.id);const msg=`${nameFor(p)} suggested ${p.name} 🌍 — approve or veto? 👀\n${url.href}`;if(navigator.share){try{await navigator.share({text:msg});return;}catch(e){if(e.name==='AbortError')return;}}try{await navigator.clipboard.writeText(msg);notify('Message copied — paste it into WhatsApp!');}catch{window.prompt('Copy this message for WhatsApp:',msg);}}
+async function sharePlace(p){const url=new URL(location.href);url.hash='place-'+encodeURIComponent(p.id);const msg=`${nameFor(p)} suggested ${p.name} 🌍 — are you up for it? 👀\n${url.href}`;if(navigator.share){try{await navigator.share({text:msg});return;}catch(e){if(e.name==='AbortError')return;}}try{await navigator.clipboard.writeText(msg);notify('Message copied — paste it into WhatsApp!');}catch{window.prompt('Copy this message for WhatsApp:',msg);}}
 function renderNotifications(){
   const list=$('notifications-list');list.replaceChildren();const items=incoming(),extra=placesToIncoming(),mail=kisses.filter(k=>k.toUid===USER_UIDS[currentUser]);
   if(!items.length&&!extra.length&&!mail.length){list.innerHTML='<p class="empty">All caught up for now.</p>';return;}
@@ -314,16 +314,16 @@ async function writePlace(p,next){
 }
 async function changeStatus(p,next,actionButton=null){
   if(!['approved','vetoed'].includes(next))return;
-  if(stateOf(p)!=='suggested'||nameFor(p)===currentUser)return notify('Only the other person can approve or veto.');
+  if(stateOf(p)!=='suggested'||nameFor(p)===currentUser)return notify('Only the other person can respond to this suggestion.');
   const saved=await confirmedWrite(()=>writePlace(p,{status:next,category:next==='approved'?'Agreed Trip':p.category,reviewedBy:currentUser}),
     actionButton);
-  if(saved){closeDetails();notify(next==='approved'?'Saved ✓ Approved and shared!':'Saved ✓ Suggestion vetoed.');}
+  if(saved){closeDetails();notify(next==='approved'?'Saved ✓ Both up for it!':'Saved ✓ Not for me.');}
 }
 async function saveVisit(){
   const p=pins.find(x=>x.id===selectedId);if(!p)return;
   const url=$('photo-url').value.trim();
   if(url&&!/^https:\/\//i.test(url))return notify('Please use an https:// photo URL.');
-  if(!['approved','visited'].includes(stateOf(p)))return notify('Approve the place first.');
+  if(!['approved','visited'].includes(stateOf(p)))return notify('Add the place to your shared list first.');
   const saved=await confirmedWrite(()=>writePlace(p,{status:'visited',category:'Visited',visitedAt:p.visitedAt||new Date(),memoryNotes:$('memory-notes').value.trim(),photoUrl:url}),$('confirm-visited'));
   if(saved){closeDetails();notify('Saved ✓ Added to places we’ve been.');}
 }
@@ -379,7 +379,7 @@ const voteCount=p=>Number(hasVote(p,'joeStars'))+Number(hasVote(p,'noemieStars')
 const submittedAt=p=>{const value=p.createdAt?.toDate?.()|| (p.createdAt?.seconds?new Date(p.createdAt.seconds*1000):new Date(p.createdAt||0));return Number.isNaN(value.getTime())||!p.createdAt?'—':new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric'}).format(value);};
 const submittedTime=p=>p.createdAt?.toMillis?.()||(p.createdAt?.seconds? p.createdAt.seconds*1000 : +new Date(p.createdAt||0))||0;
 function placesReady(){return isDemo||(!placesToBusy&&placesToFresh&&canWrite());}
-function placesToStatus(){const el=$('places-tab-help');if(!el)return;if(!isDemo&&!placesToFresh){el.textContent='Connecting to your private checklist… actions will be available once connected.';return;}el.textContent={approved:'Tap the heart on the ones you really want. Mutual favourites rise to the top.',suggested:'Ideas only appear on the approved list when the other person is comfortable with them.',done:'The ones we’ve ticked off together ✓'}[placesToTab];}
+function placesToStatus(){const el=$('places-tab-help');if(!el)return;if(!isDemo&&!placesToFresh){el.textContent='Connecting to your private checklist… actions will be available once connected.';return;}el.textContent={approved:'Tap the heart on the ones you really want. Mutual favourites rise to the top.',suggested:'Ideas join our list when the other person is up for them. Being on the list is never a commitment.',done:'The ones we’ve ticked off together ✓'}[placesToTab];}
 function setPlacesTab(tab){placesToTab=tab;document.querySelectorAll('.places-tab').forEach(b=>b.classList.toggle('active',b.dataset.listTab===tab));renderPlacesTo();}
 function makePlaceButton(text,action,cls='secondary',disabled=false){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=text;b.disabled=disabled;b.onclick=action;if(cls==='mini-delete-btn'){b.title='Remove idea';b.setAttribute('aria-label','Remove idea');}return b;}
 function renderPlacesTo(){
@@ -397,7 +397,7 @@ function renderPlacesTo(){
   root.replaceChildren();
   if(!records.length){
     const empty=document.createElement('div');empty.className='places-empty';
-    empty.textContent={approved:'Nothing approved yet — suggest your first place 👀',suggested:'No suggestions waiting right now.',done:'Nothing ticked off yet. The best bits are still to come.'}[placesToTab];root.append(empty);
+    empty.textContent={approved:'Nothing on our list yet — suggest your first idea 👀',suggested:'No suggestions waiting right now.',done:'Nothing ticked off yet. The best bits are still to come.'}[placesToTab];root.append(empty);
   }else{
     const wrap=document.createElement('div');wrap.className='places-table-wrap';
     const table=document.createElement('table');table.className='places-priority-table';
@@ -431,8 +431,8 @@ function renderPlacesTo(){
         const nameCell=cell(tr,p.name,'priority-name');nameCell.title=p.notes||p.name;
         cell(tr,submittedAt(p),'submitted-date');cell(tr,p.addedBy,'suggest-author');
         if(p.addedBy!==currentUser){const actions=document.createElement('div');actions.className='compact-decision';
-          actions.append(makePlaceButton('Approve ✓',()=>decidePlace(p,'approved'),'mini-approve-btn',!placesReady()));
-          actions.append(makePlaceButton('Veto',()=>decidePlace(p,'vetoed'),'mini-done-btn',!placesReady()));
+          actions.append(makePlaceButton('I’m up for it ✓',()=>decidePlace(p,'approved'),'mini-approve-btn',!placesReady()));
+          actions.append(makePlaceButton('Not for me',()=>decidePlace(p,'vetoed'),'mini-done-btn',!placesReady()));
           actions.append(makePlaceButton('🗑️',()=>removePlace(p),'mini-delete-btn',!placesReady()));cell(tr,actions,'decision-cell');
         }else{const controls=document.createElement('div');controls.className='compact-row-actions';controls.append(document.createTextNode(`Waiting for ${otherUser(currentUser)} `));controls.append(makePlaceButton('🗑️',()=>removePlace(p),'mini-delete-btn',!placesReady()));cell(tr,controls,'pending-cell');}
       }else{
@@ -462,12 +462,12 @@ async function decidePlace(p,status){const ok=await placesToWrite(async()=>{if(p
 async function togglePlaceVote(p){
   const key=myVoteKey();const voted=hasVote(p,key);const next=voted?0:1;
   await placesToWrite(async()=>{
-    if(isDemo){if(p.status!=='approved')throw Error('Only approved ideas can be upvoted.');p[key]=next;saveDemoPlacesTo();return;}
+    if(isDemo){if(p.status!=='approved')throw Error('Only ideas on our list can be upvoted.');p[key]=next;saveDemoPlacesTo();return;}
     // A transaction avoids accidental overwrites if both people vote together.
     const ref=firestore.doc(db,'placesTo',p.id);
     await firestore.runTransaction(db,async tx=>{
       const snap=await tx.get(ref);
-      if(!snap.exists()||snap.data().status!=='approved')throw Error('This idea is no longer approved.');
+      if(!snap.exists()||snap.data().status!=='approved')throw Error('This idea is no longer on our list.');
       const current=Number(snap.data()[key]||0)>0;
       tx.update(ref,{[key]:current?0:1});
     });
@@ -484,7 +484,7 @@ function closeDodoResult(){$('dodo-result-modal').hidden=true;}
 function chooseDodo(){
   if(dodoSpinning)return;
   const options=placesTo.filter(p=>p.status==='approved');
-  if(!options.length)return notify('Approve some ideas first 👀');
+  if(!options.length)return notify('Add some ideas to our list first 👀');
   dodoSpinning=true;
   const btn=$('places-surprise');btn.disabled=true;btn.textContent='The dodo is thinking…';
   const wheel=$('dodo-wheel'),cycling=$('dodo-cycling'),n=options.length;
