@@ -97,27 +97,73 @@ async function saveProfile(e){
   }catch(err){$('profile-error').textContent='Could not save: '+err.message;}
   finally{profileSaving=false;btn.disabled=false;btn.textContent='Save profile ✓';}
 }
+// One visible inbox kiss per recipient. Old randomly-IDed kiss records are
+// folded into that same notification until the recipient opens it.
+function pendingKisses(){
+  const mine=kisses.filter(k=>k.toUid===USER_UIDS[currentUser]);
+  if(!mine.length)return [];
+  const time=k=>k.createdAt?.toMillis?.() || (k.createdAt?.seconds||0)*1000 || new Date(k.createdAt||0).getTime() || 0;
+  return [mine.slice().sort((a,b)=>time(b)-time(a))[0]];
+}
 async function sendKiss(){
   if(kissSending)return;
   if(!isDemo&&!canWrite())return notify('Wait until Connected appears to send a kiss.');
   kissSending=true;const btn=$('send-kiss');btn.disabled=true;btn.textContent='Sending…';
   try{
-    if(isDemo){kisses.unshift({id:crypto.randomUUID(),fromUid:USER_UIDS[currentUser],toUid:otherUid(),createdAt:new Date()});localStorage.setItem('our-space-demo-kisses',JSON.stringify(kisses));refreshNotificationsWithKisses();}
-    else await firestore.addDoc(firestore.collection(db,'kisses'),{fromUid:USER_UIDS[currentUser],toUid:otherUid(),createdAt:firestore.serverTimestamp()});
+    // The recipient UID is the fixed document ID. Repeated sends overwrite the
+    // same private pending notification. Senders have no read access to it.
+    if(isDemo){
+      const uid=otherUid();kisses=kisses.filter(k=>k.toUid!==uid);
+      kisses.push({id:uid,fromUid:USER_UIDS[currentUser],toUid:uid,createdAt:new Date()});
+      localStorage.setItem('our-space-demo-kisses',JSON.stringify(kisses));refreshNotificationsWithKisses();
+    }else{
+      const uid=otherUid();
+      await firestore.setDoc(firestore.doc(db,'kisses',uid),{
+        fromUid:USER_UIDS[currentUser],toUid:uid,createdAt:firestore.serverTimestamp()
+      });
+    }
     closeProfileDialogs();notify('Kiss sent 😘');
   }catch(err){notify('Could not send kiss: '+err.message);}
   finally{kissSending=false;btn.disabled=false;btn.textContent='😘 Send a kiss';}
 }
+let kissOpening=false;
 async function dismissKiss(kiss){
+  if(kissOpening)return;
   if(!isDemo&&!canWrite())return notify('Please reconnect before opening your kiss.');
+  kissOpening=true;
   try{
-    if(isDemo){kisses=kisses.filter(x=>x.id!==kiss.id);localStorage.setItem('our-space-demo-kisses',JSON.stringify(kisses));refreshNotificationsWithKisses();}
-    else await firestore.deleteDoc(firestore.doc(db,'kisses',kiss.id));
-    notify('😘');
+    // Clear the single current kiss plus any older legacy kiss documents.
+    // Only the recipient is allowed to delete these records.
+    const mine=kisses.filter(k=>k.toUid===USER_UIDS[currentUser]);
+    if(isDemo){
+      kisses=kisses.filter(k=>k.toUid!==USER_UIDS[currentUser]);
+      localStorage.setItem('our-space-demo-kisses',JSON.stringify(kisses));
+      refreshNotificationsWithKisses();
+    }else{
+      const batch=firestore.writeBatch(db);
+      for(const k of mine)batch.delete(firestore.doc(db,'kisses',k.id));
+      if(mine.length)await batch.commit();
+    }
+    $('notifications-modal').hidden=true;
+    openKissCelebration(nameForUid(kiss.fromUid)||'Someone special');
   }catch(err){notify('Could not open kiss: '+err.message);}
+  finally{kissOpening=false;}
+}
+function openKissCelebration(sender){
+  $('kiss-celebration-from').textContent='A little kiss from '+sender+' ❤️';
+  const dialog=$('kiss-celebration');
+  dialog.hidden=false;
+  // Restart the entrance animation every time a new kiss is opened.
+  const scene=$('kiss-celebration-scene');scene.classList.remove('kiss-animate');
+  void scene.offsetWidth;scene.classList.add('kiss-animate');
+  $('kiss-celebration-close').focus();
+}
+function closeKissCelebration(){
+  $('kiss-celebration').hidden=true;
+  $('kiss-celebration-scene').classList.remove('kiss-animate');
 }
 function refreshNotificationsWithKisses(){
-  const count=incoming().length+placesToIncoming().length+kisses.filter(k=>k.toUid===USER_UIDS[currentUser]).length;
+  const count=incoming().length+placesToIncoming().length+pendingKisses().length;
   $('notifications-count').textContent=count;
   $('notifications-btn').classList.toggle('has-new',count>0);
   refreshHome();renderNotifications();
@@ -144,8 +190,8 @@ function bindProfiles(){
 function refreshHome(){
   const greeting=$('home-greeting');if(!greeting)return;
   greeting.textContent=currentUser==='Noémie'?'HEY, CAPTAIN 👀':'HEY, JOE 👋';
-  const pendingTrips=incoming().length,pendingIdeas=placesToIncoming().length,pendingKisses=kisses.filter(k=>k.toUid===USER_UIDS[currentUser]).length,total=pendingTrips+pendingIdeas+pendingKisses;
-  $('home-attention').textContent=total?`${pendingTrips} trip ${pendingTrips===1?'suggestion':'suggestions'} · ${pendingIdeas} Places To ${pendingIdeas===1?'idea':'ideas'} · ${pendingKisses} ${pendingKisses===1?'kiss':'kisses'} waiting for you`:'All caught up — nothing new right now.';
+  const pendingTrips=incoming().length,pendingIdeas=placesToIncoming().length,pendingKisses=pendingKisses().length,total=pendingTrips+pendingIdeas+pendingKisses;
+  $('home-attention').textContent=total?`${pendingTrips} trip ${pendingTrips===1?'suggestion':'suggestions'} · ${pendingIdeas} list ${pendingIdeas===1?'idea':'ideas'} · ${pendingKisses} ${pendingKisses===1?'kiss':'kisses'} waiting for you`:'All caught up — nothing new right now.';
   // Firebase listeners already refresh the map and checklist arrays; counts remain live even while collapsed.
   $('kpi-to-visit').textContent=pins.filter(p=>stateOf(p)==='approved').length;
   $('kpi-visited').textContent=pins.filter(p=>stateOf(p)==='visited').length;
@@ -267,7 +313,7 @@ function toggleMapExpanded(){
   $('map-expand').setAttribute('aria-pressed',String(mapExpanded));
   setTimeout(()=>map.invalidateSize(),70);
 }
-function render(){const suggestions=pins.filter(p=>stateOf(p)==='suggested'),approved=pins.filter(p=>stateOf(p)==='approved'),visited=pins.filter(p=>stateOf(p)==='visited');$('wishlist-count').textContent=suggestions.length;$('agreed-count').textContent=approved.length;$('done-count').textContent=visited.length;$('notifications-count').textContent=incoming().length+placesToIncoming().length+kisses.filter(k=>k.toUid===USER_UIDS[currentUser]).length;$('notifications-btn').classList.toggle('has-new',incoming().length+placesToIncoming().length+kisses.filter(k=>k.toUid===USER_UIDS[currentUser]).length>0);
+function render(){const suggestions=pins.filter(p=>stateOf(p)==='suggested'),approved=pins.filter(p=>stateOf(p)==='approved'),visited=pins.filter(p=>stateOf(p)==='visited');$('wishlist-count').textContent=suggestions.length;$('agreed-count').textContent=approved.length;$('done-count').textContent=visited.length;$('notifications-count').textContent=incoming().length+placesToIncoming().length+pendingKisses().length;$('notifications-btn').classList.toggle('has-new',incoming().length+placesToIncoming().length+pendingKisses().length>0);
   if(clusterGroup){clusterGroup.clearLayers();savedMarkers.clear();}
   for(const place of pins.filter(tripFilterMatches)){
     if(!Number.isFinite(place.lat)||!Number.isFinite(place.lng))continue;
@@ -298,11 +344,11 @@ async function saveDescription(){
 }
 async function sharePlace(p){const url=new URL(location.href);url.hash='place-'+encodeURIComponent(p.id);const msg=`${nameFor(p)} suggested ${p.name} 🌍 — are you up for it? 👀\n${url.href}`;if(navigator.share){try{await navigator.share({text:msg});return;}catch(e){if(e.name==='AbortError')return;}}try{await navigator.clipboard.writeText(msg);notify('Message copied — paste it into WhatsApp!');}catch{window.prompt('Copy this message for WhatsApp:',msg);}}
 function renderNotifications(){
-  const list=$('notifications-list');list.replaceChildren();const items=incoming(),extra=placesToIncoming(),mail=kisses.filter(k=>k.toUid===USER_UIDS[currentUser]);
+  const list=$('notifications-list');list.replaceChildren();const items=incoming(),extra=placesToIncoming(),mail=pendingKisses();
   if(!items.length&&!extra.length&&!mail.length){list.innerHTML='<p class="empty">All caught up for now.</p>';return;}
   for(const k of mail){const b=document.createElement('button');b.className='notification-row kiss-notification';b.innerHTML=`<strong>😘 A little delivery from ${escapeHtml(nameForUid(k.fromUid)||'someone special')}</strong><span>Tap to open your kiss</span>`;b.onclick=()=>dismissKiss(k);list.append(b);}
-  for(const p of extra){const b=document.createElement('button');b.className='notification-row';b.innerHTML=`<strong>😈 ${escapeHtml(p.name)}</strong><span>${escapeHtml(p.addedBy)} suggested a new checklist idea · Review →</span>`;b.onclick=()=>{$('notifications-modal').hidden=true;placesToTab='suggested';navigate('places');setPlacesTab('suggested');};list.append(b);}
-  for(const p of items){const b=document.createElement('button');b.className='notification-row';b.innerHTML=`<strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(nameFor(p))} suggested this · Review →</span>`;b.onclick=()=>{$('notifications-modal').hidden=true;navigate('map');openDetails(p.id);};list.append(b);}
+  for(const p of extra){const b=document.createElement('button');b.className='notification-row';b.innerHTML=`<strong>😈 ${escapeHtml(p.name)}</strong><span>${escapeHtml(p.addedBy)} suggested a new list idea · Review →</span>`;b.onclick=()=>{$('notifications-modal').hidden=true;placesToTab='suggested';navigate('places');setPlacesTab('suggested');};list.append(b);}
+  for(const p of items){const b=document.createElement('button');b.className='notification-row';b.innerHTML=`<strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(nameFor(p))} suggested this trip · Review →</span>`;b.onclick=()=>{$('notifications-modal').hidden=true;navigate('map');openDetails(p.id);};list.append(b);}
 }
 function showPinModal(latlng=null,suggestedName=''){pendingLatLng=latlng||map.getCenter();$('pin-form').reset();$('pin-name').value=suggestedName;$('pin-coords').textContent=`📍 ${pendingLatLng.lat.toFixed(4)}, ${pendingLatLng.lng.toFixed(4)}`;$('pin-modal').hidden=false;updateConnectionUI();if(previewMarker)previewMarker.remove();previewMarker=L.circleMarker(pendingLatLng,{radius:9,color:'#fff',weight:3,fillColor:'#df8a69',fillOpacity:1}).addTo(map);setTimeout(()=>$('pin-name').focus(),50);}
 function closePinModal(){if(writeInProgress)return;$('pin-modal').hidden=true;if(previewMarker)previewMarker.remove();previewMarker=null;}
@@ -370,7 +416,7 @@ function openDeepLink(){const value=decodeURIComponent(location.hash.slice(1));i
 function bindEvents(){bindMusic();bindProfiles();bindHomeKpis();document.querySelectorAll('.nav-link').forEach(b=>b.onclick=()=>navigate(b.dataset.section));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>navigate(b.dataset.go));$('back-home').onclick=()=>navigate('home');$('soon-map').onclick=()=>navigate('map');$('open-sidebar').onclick=openSidebar;$('close-sidebar').onclick=closeSidebar;$('shade').onclick=closeSidebar;$('add-place').onclick=()=>showPinModal();$('close-pin').onclick=closePinModal;$('cancel-pin').onclick=closePinModal;$('pin-form').addEventListener('submit',createPlace);$('search-form').addEventListener('submit',searchPlaces);$('fit-pins').onclick=fitPins;$('trip-list-toggle').onclick=()=>{tripListExpanded=!tripListExpanded;if(!tripListExpanded)filter='All';render();};
   $('trip-sort').onchange=e=>{tripSort=e.target.value;renderTripList();};
   document.querySelectorAll('[data-trip-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.tripFilter;render();});
-  $('map-expand').onclick=toggleMapExpanded;$('notifications-btn').onclick=()=>{$('notifications-modal').hidden=false;};$('close-notifications').onclick=()=>{$('notifications-modal').hidden=true;};$('close-detail').onclick=closeDetails;$('save-description').onclick=saveDescription;$('cancel-description').onclick=()=>{$('edit-description-fields').hidden=true;};$('confirm-visited').onclick=saveVisit;document.querySelectorAll('.backdrop').forEach(el=>el.addEventListener('click',e=>{if(e.target!==el)return;if(el.id==='pin-modal')closePinModal();if(el.id==='detail-modal')closeDetails();if(el.id==='notifications-modal')el.hidden=true;}));document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(mapExpanded)toggleMapExpanded();closePinModal();closeDetails();$('notifications-modal').hidden=true;$('search-results').hidden=true;closeSidebar();});$('demo-user').onchange=e=>{currentUser=e.target.value;localStorage.setItem('our-site-demo-user',currentUser);$('identity').textContent=`Preview as ${currentUser}`;showProfileStatus();render();refreshNotificationsWithKisses();};$('auth-form').addEventListener('submit',async e=>{e.preventDefault();$('auth-error').textContent='';const b=$('auth-form').querySelector('button');b.disabled=true;try{const username=$('username').value.trim().toLowerCase();const loginEmail=LOGIN_EMAILS[username];if(!loginEmail){$('auth-error').textContent='Use Joe or Captain as your username.';return;}await authApi.signInWithEmailAndPassword(auth,loginEmail,$('password').value);$('password').value='';}catch(err){$('auth-error').textContent=err.code==='auth/invalid-credential'?'Incorrect username or password.':err.message;}finally{b.disabled=false;}});$('sign-out').onclick=()=>authApi.signOut(auth);$('mobile-sign-out').onclick=()=>{if(confirm('Sign out of Our Space?'))authApi.signOut(auth);};$('home-review').onclick=()=>{$('notifications-modal').hidden=false;};window.addEventListener('offline',()=>{serverFresh=false;updateConnectionUI();});window.addEventListener('online',()=>{serverFresh=false;updateConnectionUI();});window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#place-'))openDeepLink();else if(location.hash==='#map')navigate('map');else if(location.hash==='#home')navigate('home');});}
+  $('map-expand').onclick=toggleMapExpanded;$('notifications-btn').onclick=()=>{$('notifications-modal').hidden=false;};$('close-notifications').onclick=()=>{$('notifications-modal').hidden=true;};$('kiss-celebration-close').onclick=closeKissCelebration;$('kiss-celebration-done').onclick=closeKissCelebration;$('kiss-celebration').addEventListener('click',e=>{if(e.target===$('kiss-celebration'))closeKissCelebration();});$('close-detail').onclick=closeDetails;$('save-description').onclick=saveDescription;$('cancel-description').onclick=()=>{$('edit-description-fields').hidden=true;};$('confirm-visited').onclick=saveVisit;document.querySelectorAll('.backdrop').forEach(el=>el.addEventListener('click',e=>{if(e.target!==el)return;if(el.id==='pin-modal')closePinModal();if(el.id==='detail-modal')closeDetails();if(el.id==='notifications-modal')el.hidden=true;}));document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(mapExpanded)toggleMapExpanded();closePinModal();closeDetails();$('notifications-modal').hidden=true;closeKissCelebration();$('search-results').hidden=true;closeSidebar();});$('demo-user').onchange=e=>{currentUser=e.target.value;localStorage.setItem('our-site-demo-user',currentUser);$('identity').textContent=`Preview as ${currentUser}`;showProfileStatus();render();refreshNotificationsWithKisses();};$('auth-form').addEventListener('submit',async e=>{e.preventDefault();$('auth-error').textContent='';const b=$('auth-form').querySelector('button');b.disabled=true;try{const username=$('username').value.trim().toLowerCase();const loginEmail=LOGIN_EMAILS[username];if(!loginEmail){$('auth-error').textContent='Use Joe or Captain as your username.';return;}await authApi.signInWithEmailAndPassword(auth,loginEmail,$('password').value);$('password').value='';}catch(err){$('auth-error').textContent=err.code==='auth/invalid-credential'?'Incorrect username or password.':err.message;}finally{b.disabled=false;}});$('sign-out').onclick=()=>authApi.signOut(auth);$('mobile-sign-out').onclick=()=>{if(confirm('Sign out of Our Space?'))authApi.signOut(auth);};$('home-review').onclick=()=>{$('notifications-modal').hidden=false;};window.addEventListener('offline',()=>{serverFresh=false;updateConnectionUI();});window.addEventListener('online',()=>{serverFresh=false;updateConnectionUI();});window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#place-'))openDeepLink();else if(location.hash==='#map')navigate('map');else if(location.hash==='#home')navigate('home');});}
 // Music lives in a separate Firestore collection. Existing features are untouched.
 let musicTracks=[],musicReady=false,unsubscribeMusic=null,musicTab='current',musicSaving=false,musicPreviewData=null,musicUrlInputSerial=0,musicOpenTrackId=null,musicDeleting=false;
 const musicDemoKey='our-space-demo-music';
@@ -563,7 +609,7 @@ function renderPlacesTo(){
     });
     table.append(tbody);wrap.append(table);root.append(wrap);
   }
-  const count=incoming().length+placesToIncoming().length+kisses.filter(k=>k.toUid===USER_UIDS[currentUser]).length;
+  const count=incoming().length+placesToIncoming().length+pendingKisses().length;
   $('notifications-count').textContent=count;
   $('notifications-btn').classList.toggle('has-new',count>0);
   renderNotifications();refreshHome();

@@ -124,5 +124,20 @@
 <div class="backdrop" id="other-profile-modal" hidden><div class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="other-profile-heading"><button type="button" class="x" id="close-other-profile" aria-label="Close">✕</button><div class="eyebrow orange">A LITTLE HELLO</div><h2 id="other-profile-heading">Noémie</h2><div class="profile-hero"><div class="profile-large-avatar" id="other-profile-large">🦤</div><div><p id="other-profile-vibe">No status yet</p></div></div><button type="button" class="primary full kiss-button" id="send-kiss">😘 Send a kiss</button></div></div>
 <div class="backdrop" id="music-share-modal" hidden><div class="modal music-form-modal" role="dialog" aria-modal="true" aria-labelledby="music-share-title"><button type="button" class="x" id="music-share-close" aria-label="Close">✕</button><div class="eyebrow orange">YOUR CURRENT JAM</div><h2 id="music-share-title">Share a track 🎧</h2><p>Paste a Spotify track link. We'll grab the cover art and title automatically where available.</p><form id="music-share-form"><label for="music-track-url">Spotify track link *</label><input id="music-track-url" type="url" required placeholder="https://open.spotify.com/track/…" autocomplete="off"><div id="music-preview" class="music-preview" hidden></div><label for="music-track-note">A little note (optional)</label><textarea id="music-track-note" rows="2" maxlength="300" placeholder="On repeat. Trust me 😂"></textarea><p class="music-form-feedback" id="music-form-feedback" role="status"></p><div class="actions"><button class="secondary" type="button" id="music-share-cancel">Cancel</button><button class="primary" type="submit" id="music-share-save">Share track ↗</button></div></form></div></div>
 <div class="backdrop" id="music-player-modal" hidden><div class="modal music-player-modal" role="dialog" aria-modal="true" aria-labelledby="music-player-title"><button type="button" class="x" id="music-player-close" aria-label="Close player">✕</button><div class="eyebrow orange">NOW PLAYING</div><h2 id="music-player-title">Your track 🎵</h2><p id="music-player-by"></p><div id="music-player-embed"></div><a id="music-player-link" class="music-open-link" target="_blank" rel="noopener noreferrer">Open in Spotify ↗</a><div class="music-player-actions"><button id="music-delete-track" class="music-delete-track" type="button" hidden>Delete my share</button><p id="music-delete-error" class="music-delete-error" role="alert"></p></div></div></div>
+<div class="backdrop kiss-celebration-backdrop" id="kiss-celebration" hidden>
+  <div class="modal kiss-celebration-modal" role="dialog" aria-modal="true" aria-labelledby="kiss-celebration-title">
+    <button type="button" class="x" id="kiss-celebration-close" aria-label="Close kiss">✕</button>
+    <div id="kiss-celebration-scene" class="kiss-scene">
+      <div class="kiss-big">😘</div>
+      <div class="kiss-heart kiss-heart-one" aria-hidden="true">❤️</div>
+      <div class="kiss-heart kiss-heart-two" aria-hidden="true">💕</div>
+      <div class="kiss-heart kiss-heart-three" aria-hidden="true">❤️</div>
+      <div class="kiss-happy" aria-hidden="true">🥰</div>
+    </div>
+    <h2 id="kiss-celebration-title">Mwah! ❤️</h2>
+    <p id="kiss-celebration-from">A little kiss for you.</p>
+    <button type="button" class="primary kiss-done" id="kiss-celebration-done">Done 🥰</button>
+  </div>
+</div>
 <div class="toast" role="status" aria-live="polite" id="toast"></div><div class="undo-toast" id="undo-toast" hidden role="status" aria-live="polite"><span id="undo-label">Idea removed</span><button id="undo-button" type="button">Undo</button><button id="undo-dismiss" type="button" aria-label="Dismiss">×</button></div>
 </body></html>

@@ -159,3 +159,26 @@ body.trip-map-fullscreen{overflow:hidden}
 .music-delete-track:hover{background:#ffe9e6}.music-delete-track:disabled{opacity:.55;cursor:wait}
 .music-delete-error{color:#a23c36!important;font-size:12px;min-height:0;margin:8px 0 0!important}
 .music-player-actions[hidden],.music-delete-track[hidden]{display:none!important}
+
+/* A small, one-off kiss-opening moment. All movement is decorative. */
+.kiss-celebration-backdrop{z-index:2300;background:#2a2627b8}
+.kiss-celebration-modal{text-align:center;max-width:370px;padding:29px 24px 24px;overflow:hidden;background:linear-gradient(180deg,#fff5f2,#fff)}
+.kiss-celebration-modal h2{font-family:Outfit,sans-serif;letter-spacing:0;font-size:30px;margin:0}
+.kiss-celebration-modal p{font-size:13px;color:#8e7b76;margin:8px 0 22px}
+.kiss-scene{position:relative;height:178px;display:grid;place-items:center;isolation:isolate}
+.kiss-big{font-size:69px;line-height:1;opacity:1;transform:scale(1)}
+.kiss-happy{position:absolute;font-size:66px;opacity:0;transform:scale(.65)}
+.kiss-heart{position:absolute;font-size:22px;opacity:0;pointer-events:none}
+.kiss-heart-one{top:55px;left:30%}.kiss-heart-two{top:28px;left:52%}.kiss-heart-three{top:66px;left:66%}
+.kiss-animate .kiss-big{animation:kiss-pop 1.7s ease forwards}
+.kiss-animate .kiss-happy{animation:kiss-smile 1.7s ease forwards}
+.kiss-animate .kiss-heart-one{animation:kiss-float-a 1.7s ease-out forwards}
+.kiss-animate .kiss-heart-two{animation:kiss-float-b 1.7s ease-out forwards}
+.kiss-animate .kiss-heart-three{animation:kiss-float-c 1.7s ease-out forwards}
+.kiss-done{width:100%;padding:12px 20px;border-radius:12px}
+@keyframes kiss-pop{0%{transform:scale(.5);opacity:0}22%{transform:scale(1.18);opacity:1}43%{transform:scale(1)}60%{opacity:1}78%,100%{transform:scale(.78);opacity:0}}
+@keyframes kiss-smile{0%,60%{opacity:0;transform:scale(.65)}78%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+@keyframes kiss-float-a{0%,20%{opacity:0;transform:translate(0,15px) scale(.5)}37%{opacity:1}78%,100%{opacity:0;transform:translate(-25px,-65px) scale(1.2)}}
+@keyframes kiss-float-b{0%,24%{opacity:0;transform:translate(0,15px) scale(.5)}44%{opacity:1}85%,100%{opacity:0;transform:translate(13px,-75px) scale(1.1)}}
+@keyframes kiss-float-c{0%,30%{opacity:0;transform:translate(0,15px) scale(.5)}48%{opacity:1}90%,100%{opacity:0;transform:translate(28px,-52px) scale(1.1)}}
+@media(prefers-reduced-motion:reduce){.kiss-animate .kiss-big,.kiss-animate .kiss-heart,.kiss-animate .kiss-happy{animation:none}.kiss-animate .kiss-big,.kiss-animate .kiss-heart{opacity:0}.kiss-animate .kiss-happy{opacity:1;transform:none}}
