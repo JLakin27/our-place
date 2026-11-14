@@ -1,26 +1,21 @@
-# Our Space — Our Next Stop map update
+# Our Space — Travel description editing, neutral clusters, and Status column
 
-## Install safely
+Based on the latest **Most Tempting** release, preserving the existing English-labelled map, profile wording, and other features.
 
-1. Back up the currently working GitHub repository (Code → Download ZIP).
-2. At the repository root, replace **only** `index.html`, `styles.css` and `app.js` with the three files in this ZIP. Keep their exact names.
-3. Commit with a descriptive message such as `Improve travel map and places list`.
-4. Refresh your GitHub Pages website using Ctrl + Shift + R after deployment.
-5. **Do not change Firebase accounts or Firestore security rules.** The `firestore.rules` copy is included only as a backup/reference; it does not need publishing for this update.
+## Install
+Replace these three files in the GitHub Pages repository root:
+- `index.html`
+- `app.js`
+- `styles.css`
 
-## What changed
+Leave Firebase Auth settings, `firestore.rules`, and existing Firestore data unchanged. No migration is needed.
 
-- The map now uses Leaflet.markercluster to combine nearby pins into numbered clusters. Zoom in or click a cluster to separate them. At maximum zoom, exactly overlapping markers spread apart (spiderfy).
-- A compact "Our places" section above the map shows three newest places by default. Use **View all** for filters (All, Approved, Suggested, Done, Vetoed) and sort (Newest, A–Z, Oldest). Filters also apply to the map. Closing the list resets the map filter to All.
-- Tap a place to focus it and open its existing details. The places/cards below the map and the duplicate sidebar list have been removed.
-- The Done legend has a visible green dot, including on mobile.
-- **Expand map** makes the map fill the viewport; click **Close map** or press Escape to exit.
-- Done entries display their recorded visited date. Old entries without `createdAt` show "Date not recorded"; no data is changed.
+## Updates
+- On **Our Next Stop**, open any saved destination, then click **Edit description**. Either of the two signed-in users can edit it whether suggested, both up for it, visited or not for me. Save or cancel at any time. Uses the existing `notes` field.
+- Cluster badges have a neutral slate-blue background instead of the orange of the Both up for it status. The number counts clustered places regardless of status.
+- On **Our Places To > Suggestions**, the `Decision` column header now reads `Status`. Actions are unchanged.
 
-## Notes and tests
+## Check
+After publishing, edit an existing description, reload and confirm it persisted on both accounts; zoom map in/out to test neutral clusters; check Suggestions > Status on mobile.
 
-This change uses the public Leaflet.markercluster CDN. If the plugin is unreachable, the map falls back to ordinary individual pins. The website still needs network access for Leaflet, Firebase and map tiles.
-
-Test both accounts: map loads, clustering works, View all filters/sorting work, tap a place shows details, approve a suggestion, mark a place visited, and check the homepage KPIs/profile/kisses/checklist still work.
-
-The added client-side code was checked for JavaScript syntax and element IDs, but has not been live-tested against your Firebase database. Existing Firebase configuration, UIDs, and data have been preserved.
+Technical: JavaScript syntax has been checked, but live Firebase interactions have not been tested.

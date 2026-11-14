@@ -120,10 +120,16 @@
 .trip-list-state{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;flex-shrink:0;font-weight:800;background:#ece1f3;color:#947ca1}.trip-list-state.together{background:#ffe5d7;color:#c57d5e}.trip-list-state.done{background:#e1eee6;color:#53856d}.trip-list-state.vetoed{background:#efeeee;color:#8c8580}
 .trip-list-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}.trip-list-body strong{font-size:13px;overflow-wrap:anywhere}.trip-list-body small{font-size:11px;color:#9b928a}
 .trip-status{font-size:10px;font-weight:800;color:#84756c;background:#f4f0ed;padding:5px 8px;border-radius:30px;white-space:nowrap}.trip-status-approved{background:#fff0e6;color:#b77555}.trip-status-visited{background:#e7f2eb;color:#56836b}.trip-status-suggested{background:#f2eaf7;color:#9276a4}
-.trip-cluster-outer{background:transparent;border:0}.trip-cluster{display:grid;place-items:center;width:44px;height:44px;border:4px solid #fff;box-shadow:0 2px 10px #0003;border-radius:50%;font:800 16px Outfit,sans-serif;background:#dc8b70;color:white}
+.trip-cluster-outer{background:transparent;border:0}.trip-cluster{display:grid;place-items:center;width:44px;height:44px;border:4px solid #fff;box-shadow:0 2px 10px #0003;border-radius:50%;font:800 16px Outfit,sans-serif;background:#536d86;color:white}
 .leaflet-marker-icon.trip-cluster-outer{background:none}.leaflet-marker-icon.trip-cluster-outer div{box-sizing:border-box}
 .legend .dot.done{background:#77a48e}
 .map-card.map-is-expanded{position:fixed!important;inset:12px;z-index:1800;display:flex;flex-direction:column;box-shadow:0 15px 70px #0004;border-radius:16px}
 .map-is-expanded #map{flex:1;height:auto!important;min-height:220px}.map-is-expanded .map-toolbar,.map-is-expanded .search-area,.map-is-expanded .map-bottom{flex-shrink:0}
 body.trip-map-fullscreen{overflow:hidden}
 @media(max-width:760px){.trip-list-head{padding:14px}.trip-list-row{padding:10px 12px}.trip-list-controls{padding:0 10px 12px}.trip-filter{padding:8px}.trip-list-items{max-height:50vh}.map-card.map-is-expanded{inset:0;border-radius:0}.map-toolbar .legend{display:flex!important;gap:5px;flex-wrap:wrap;font-size:10px}.map-toolbar .map-options{flex-wrap:wrap}.map-toolbar .outline{font-size:10px;padding:8px}.map-toolbar{gap:8px}}
+
+/* Inline edit of a saved travel place description. */
+.edit-description-fields{margin:12px 0 16px;padding:14px;border:1px solid #e5dfd7;border-radius:13px;background:#faf8f5}
+.edit-description-fields label{display:block;font-weight:700;font-size:13px;margin-bottom:8px}
+.edit-description-fields textarea{display:block;width:100%;box-sizing:border-box;resize:vertical;min-height:100px;margin-bottom:10px}
+.edit-description-actions{display:flex;flex-wrap:wrap;gap:8px}
