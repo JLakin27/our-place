@@ -1,11 +1,11 @@
-Our Space — two small Next Stop tweaks
+Our Space — English map labels + profile tidy-up
 
 Replace ONLY these two files in the ROOT of your GitHub Pages repository:
 - index.html
 - app.js
 
-What changed:
-1. Removed the sentence beneath “Where to next, little birdie?” on the Next Stop page.
-2. Shortened the mobile/topbar page label from “OUR NEXT STOP” to “NEXT STOP”.
+Changes:
+1. Switched Next Stop map background from OpenStreetMap standard tiles to Esri World Street Map, which generally uses English names for major international places. Some local labels may still vary.
+2. Removed the duplicate name inside the other person’s profile modal (name remains once as the heading).
 
-Do not replace styles.css or change Firebase rules. Existing features and Firebase data are unchanged.
+Keep styles.css, Firebase settings, and firestore.rules unchanged. Existing map markers, clustering, list filters, and stored data remain unchanged.
